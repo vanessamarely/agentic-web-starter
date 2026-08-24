@@ -1,8 +1,10 @@
 # Builds the agent-orchestrator for deployment to Google Cloud Run (or any
-# other Node-capable container host: Render, Fly.io, Vercel via a custom
-# runtime, etc.). Only the workspace pieces this app actually needs
-# (shared-types + agent-orchestrator) are copied in, so this also works
-# correctly even though it lives inside a larger pnpm monorepo.
+# other Node-capable container host: Render, Fly.io, etc.). Lives at the
+# repo root — not inside apps/agent-orchestrator — because Cloud Run's
+# `--source` build uses the Dockerfile's own directory as the entire build
+# context, and this Dockerfile needs to see the monorepo root (lockfile,
+# workspace config, packages/shared-types) to build correctly. Only the
+# workspace pieces this app actually needs are copied in.
 FROM node:22-slim AS base
 RUN corepack enable
 

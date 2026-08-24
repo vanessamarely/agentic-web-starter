@@ -9,6 +9,7 @@ export default tseslint.config(
       "**/node_modules/**",
       "**/*.config.js",
       "**/*.config.ts",
+      "ops/**",
     ],
   },
   ...tseslint.configs.recommended,

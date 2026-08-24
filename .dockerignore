@@ -1,0 +1,13 @@
+node_modules
+**/node_modules
+dist
+**/dist
+.git
+.env
+**/.env
+*.log
+apps/web-client
+apps/codelab
+ops
+firebase.json
+.firebase

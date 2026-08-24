@@ -1,0 +1,13 @@
+{
+  "name": "billing-cutoff",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cloud Function that unlinks billing for ONE specific project when its budget is exceeded. Scoped to a single project on purpose, so it cannot affect other projects on the same billing account.",
+  "main": "index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "googleapis": "^176.0.0"
+  }
+}

@@ -1,6 +1,6 @@
 import type { Module } from "./types";
 
-const WEB_CLIENT_URL = "http://localhost:5173";
+const WEB_CLIENT_URL = "https://agentic-web-starter-client.web.app";
 const REPO_URL = "https://github.com/vanessamarely/agentic-web-starter";
 
 export const modules: Module[] = [
@@ -224,7 +224,7 @@ export const modules: Module[] = [
             type: "demo-link",
             label: "Abrir Demo 1 en vivo",
             url: `${WEB_CLIENT_URL}/#nano`,
-            note: "Requiere pnpm dev corriendo (ver README del repo).",
+            note: "Demo pública en Firebase Hosting — no necesitas correr nada localmente.",
           },
         ],
       },
@@ -312,7 +312,7 @@ for (const call of functionCalls) {
             type: "demo-link",
             label: "Abrir Demo 2 en vivo",
             url: `${WEB_CLIENT_URL}/#flash`,
-            note: "Requiere el orquestador corriendo con una API key válida.",
+            note: "Backend real corriendo en Cloud Run — el rewrite de Firebase Hosting lo conecta sin CORS.",
           },
         ],
       },
@@ -426,20 +426,74 @@ const text = await engine.generate(
         blocks: [
           {
             type: "p",
-            text: "Técnicamente nada de esto necesita correr en infraestructura de Google — pero si quieres que la demo pública demuestre el ecosistema completo (y no solo la API de Gemini), tiene sentido desplegarla 100% en productos de Google: Firebase Hosting para los dos apps estáticos y Cloud Run para el backend.",
+            text: "Técnicamente nada de esto necesita correr en infraestructura de Google — pero si quieres que la demo pública demuestre el ecosistema completo (y no solo la API de Gemini), tiene sentido desplegarla 100% en productos de Google. Esta charla usa exactamente esto, en vivo:",
+          },
+          {
+            type: "table",
+            headers: ["Pieza", "Servicio de Google", "Para qué"],
+            rows: [
+              ["web-client y codelab", "Firebase Hosting", "Build estático de Vite, CDN global, URL *.web.app gratis por sitio"],
+              ["agent-orchestrator", "Cloud Run", "Contenedor del Dockerfile, escala a cero entre demos"],
+              ["GEMINI_API_KEY", "Secret Manager", "La key nunca queda en texto plano en el contenedor ni en el repo"],
+              ["/api/** → backend", "Rewrite de Firebase Hosting", "Un solo dominio para todo, sin configurar CORS"],
+            ],
+          },
+          {
+            type: "links",
+            items: [
+              {
+                label: "Demo en vivo (web-client)",
+                url: "https://agentic-web-starter-client.web.app",
+                description: "Ya está desplegada — las 3 demos, en producción, sobre Firebase Hosting + Cloud Run.",
+              },
+              {
+                label: "Este codelab, publicado",
+                url: "https://agentic-web-starter-codelab.web.app",
+                description: "También en Firebase Hosting, por si quieres compartir el link directo.",
+              },
+            ],
+          },
+        ],
+      },
+      {
+        title: "Cómo blindamos el costo en producción",
+        durationMinutes: 1,
+        blocks: [
+          {
+            type: "p",
+            text: "\"Voy a desplegar esto para que todos lo vean\" y \"me da miedo que me llegue una cuenta gigante\" no tienen por qué estar peleados. Esta demo tiene tres capas de protección, de la más simple a la más agresiva:",
           },
           {
             type: "list",
             items: [
-              "Estáticos (web-client, codelab): Firebase Hosting — capa gratuita generosa (10GB, 360MB/día), sin tarjeta de crédito, URL *.web.app propia por app.",
-              "Backend (agent-orchestrator): incluye un Dockerfile listo para gcloud run deploy. Cloud Run escala a cero — no cobra nada entre demos.",
-              "Firebase Hosting puede redirigir /api/** directamente al servicio de Cloud Run (ya configurado en firebase.json), así que todo queda bajo un solo dominio sin lidiar con CORS.",
+              "min-instances=0 y max-instances=2 en Cloud Run: acota matemáticamente el peor caso a un puñado de centavos, incluso ante tráfico inesperado.",
+              "Una alerta de presupuesto de Cloud Billing en $1: notifica por correo al 50% y al 100% — visibilidad temprana, no sorpresas.",
+              "Un corte automático real: el presupuesto publica en Pub/Sub, y una Cloud Function desconecta la facturación de este proyecto específico si el gasto llega a $1.",
             ],
           },
           {
+            type: "code",
+            filename: "ops/billing-cutoff/index.js",
+            code: `const PROJECT_ID = "agentic-web-starter"; // nunca la cuenta completa
+
+exports.disableBillingOnBudgetExceeded = async (cloudEvent) => {
+  const notification = JSON.parse(
+    Buffer.from(cloudEvent.data.message.data, "base64").toString("utf-8"),
+  );
+
+  if (notification.costAmount < notification.budgetAmount) return;
+
+  const billing = google.cloudbilling({ version: "v1", auth });
+  await billing.projects.updateBillingInfo({
+    name: \`projects/\${PROJECT_ID}\`,
+    requestBody: { billingAccountName: "" }, // desvincula SOLO este proyecto
+  });
+};`,
+          },
+          {
             type: "callout",
-            kind: "success",
-            text: "Costo esperado desplegando así para una charla: prácticamente $0 — ninguno de los dos productos cobra por estar inactivo. Guía completa con comandos exactos en DEPLOYMENT.md, en la raíz del repo.",
+            kind: "warning",
+            text: "El patrón que documenta Google por defecto desactiva la facturación de TODA la cuenta — apagaría cualquier otro proyecto que la comparta (por ejemplo, tus propias API keys de AI Studio, que Google crea como proyectos \"gen-lang-client-...\" en esa misma cuenta). La versión de arriba usa el rol acotado \"Project Billing Manager\" para afectar solo este proyecto. Si vas a copiar este patrón, revisa qué más comparte tu cuenta de facturación antes de automatizar el corte.",
           },
         ],
       },

@@ -45,7 +45,11 @@ free, includes SSL).
 
 ## 3. Deploy the backend to Cloud Run
 
-A `Dockerfile` is already included at `apps/agent-orchestrator/Dockerfile`.
+A `Dockerfile` is already included at the **repo root** (not inside
+`apps/agent-orchestrator`) — Cloud Run's `--source` build uses the
+Dockerfile's own directory as the entire build context, and this build needs
+to see the monorepo root (`pnpm-lock.yaml`, `packages/shared-types`, etc.),
+so `--source .` from the repo root is required.
 
 ```bash
 gcloud auth login
@@ -55,10 +59,12 @@ gcloud config set project YOUR_PROJECT_ID   # same project as Firebase, ideally
 echo -n "YOUR_GEMINI_API_KEY" | gcloud secrets create gemini-api-key --data-file=-
 
 gcloud run deploy agent-orchestrator \
-  --source apps/agent-orchestrator \
+  --source . \
   --region us-central1 \
   --allow-unauthenticated \
-  --set-secrets GEMINI_API_KEY=gemini-api-key:latest
+  --set-secrets GEMINI_API_KEY=gemini-api-key:latest \
+  --min-instances=0 \
+  --max-instances=2
 ```
 
 `firebase.json`'s `webclient` site already rewrites `/api/**` to this exact
