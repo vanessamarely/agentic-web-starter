@@ -41,6 +41,10 @@ body {
   @apply font-medium text-[#202124];
 }
 
-.codelab-prose a {
+/* Scoped to inline text links only — NOT the button-style demo-link/resource
+   links, which set their own text color and would otherwise be overridden
+   (a class selector here beats a single Tailwind utility class on specificity). */
+.codelab-prose p a,
+.codelab-prose li a {
   @apply text-gdev-blue underline decoration-1 underline-offset-2 hover:text-[#174ea6];
 }

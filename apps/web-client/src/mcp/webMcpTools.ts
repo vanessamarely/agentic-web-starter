@@ -170,13 +170,76 @@ export const webMcpTools: MCPToolDefinition[] = [
   cacheOfflineRecordTool as MCPToolDefinition,
 ];
 
+/**
+ * Ambient typing for the real WebMCP browser API, per the current W3C Web
+ * Machine Learning Community Group spec (github.com/webmachinelearning/webmcp,
+ * index.bs). The entry point lives on `Document`, not `navigator`:
+ *
+ *   partial interface Document {
+ *     readonly attribute ModelContext modelContext;
+ *   };
+ *   interface ModelContext {
+ *     Promise<undefined> registerTool(ModelContextTool tool, optional options);
+ *     Promise<sequence<RegisteredTool>> getTools(optional options);
+ *     Promise<DOMString> executeTool(RegisteredTool tool, optional object input, optional options);
+ *     attribute EventHandler ontoolchange;
+ *   };
+ *
+ * There is no bulk "provideContext" or "unregisterTool" — each tool is
+ * registered individually, and unregistering happens by aborting the
+ * AbortSignal passed at registration time. Ships as an Origin Trial in
+ * Chrome 149+ / Edge 150+, or locally via chrome://flags/#enable-webmcp-testing.
+ */
+interface ModelContextToolExecuteOptions {
+  signal: AbortSignal;
+}
+
+interface ModelContextTool {
+  name: string;
+  title?: string;
+  description: string;
+  inputSchema?: object;
+  execute: (input: Record<string, unknown>, options: ModelContextToolExecuteOptions) => Promise<unknown>;
+  annotations?: { readOnlyHint?: boolean; untrustedContentHint?: boolean };
+}
+
+interface ModelContext {
+  registerTool: (
+    tool: ModelContextTool,
+    options?: { exposedTo?: string[]; signal?: AbortSignal },
+  ) => Promise<undefined>;
+}
+
 declare global {
-  interface Window {
-    __WEB_MCP_TOOLS__?: MCPToolDefinition[];
+  interface Document {
+    readonly modelContext?: ModelContext;
   }
 }
 
-/** Registers this page's WebMCP tools so an in-browser agent can discover them. */
+const READ_ONLY_TOOLS = new Set(["extractVitals"]);
+
+/** True only when this browser actually implements document.modelContext (the real WebMCP API), not just our local dispatch. */
+export function isNativeWebMcpSupported(): boolean {
+  return typeof document !== "undefined" && document.modelContext !== undefined;
+}
+
+/**
+ * Publishes this page's tools to `document.modelContext` when the browser
+ * implements the real WebMCP API, so an actual browser-level agent can
+ * discover and call them — in addition to the demo's own on-device/local
+ * code paths, which call the same tool handlers directly regardless of
+ * whether the flag/origin-trial is enabled.
+ */
 export function registerWebMcpTools(): void {
-  window.__WEB_MCP_TOOLS__ = webMcpTools;
+  const modelContext = document.modelContext;
+  if (!modelContext) return;
+  for (const tool of webMcpTools) {
+    void modelContext.registerTool({
+      name: tool.name,
+      description: tool.description,
+      inputSchema: tool.parameters,
+      execute: (input) => Promise.resolve(tool.handler(input)),
+      annotations: { readOnlyHint: READ_ONLY_TOOLS.has(tool.name) },
+    });
+  }
 }

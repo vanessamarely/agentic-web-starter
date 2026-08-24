@@ -159,13 +159,28 @@ export function OrchestrationConsole() {
       <header>
         <h1 className="text-2xl font-bold text-slate-100">Orquestación Multi-Agente</h1>
         <p className="text-sm text-slate-400">
-          Gemini Flash coordina tres agentes especializados vía function calling —{" "}
-          <span className="text-slate-300">Triage Validator</span>,{" "}
-          <span className="text-slate-300">Hospital Router</span> y{" "}
-          <span className="text-slate-300">Supply Chain Agent</span> — cada uno con sus propias
-          herramientas MCP contra datos reales de hospitales.
+          Un paciente crítico acaba de llegar. Alguien tiene que validar su prioridad clínica,
+          buscar el mejor hospital disponible y conseguir los insumos que necesita — todo a la
+          vez. Eso es lo que hace este panel: llama al backend (Gemini Flash) para correr tres
+          agentes especializados en paralelo, cada uno usando sus propias herramientas (MCP)
+          contra datos reales de hospitales.
         </p>
       </header>
+
+      <div className="grid grid-cols-3 gap-3 text-xs">
+        <div className="rounded border border-l-4 border-slate-800 border-l-sky-500 bg-slate-900 p-3">
+          <p className="font-semibold text-slate-300">1. Triage Validator</p>
+          <p className="mt-1 text-slate-500">¿La prioridad reportada coincide con los vitales?</p>
+        </div>
+        <div className="rounded border border-l-4 border-slate-800 border-l-amber-500 bg-slate-900 p-3">
+          <p className="font-semibold text-slate-300">2. Hospital Router</p>
+          <p className="mt-1 text-slate-500">¿Qué hospital con capacidad lo recibe?</p>
+        </div>
+        <div className="rounded border border-l-4 border-slate-800 border-l-emerald-500 bg-slate-900 p-3">
+          <p className="font-semibold text-slate-300">3. Supply Chain Agent</p>
+          <p className="mt-1 text-slate-500">¿Quién surte los insumos solicitados?</p>
+        </div>
+      </div>
 
       <section className="space-y-3 rounded-lg border border-slate-800 bg-slate-900 p-4">
         <div className="grid grid-cols-2 gap-3">

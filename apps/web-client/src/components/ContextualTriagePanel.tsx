@@ -19,10 +19,12 @@ import {
   cacheOfflineRecordTool,
   extractVitalsTool,
   getOfflineQueue,
+  isNativeWebMcpSupported,
   updateTriageBadgeTool,
 } from "../mcp/webMcpTools";
 import { logToolCall } from "../mcp/toolCallLog";
 import { ToolCallConsole } from "./ToolCallConsole";
+import { VoiceNoteButton } from "./VoiceNoteButton";
 
 const DEFAULT_VITALS: Vitals = {
   respiratoryRate: 16,
@@ -42,10 +44,10 @@ const PRIORITY_STYLES: Record<TriagePriority, { bg: string; text: string; label:
 };
 
 const READINESS_LABEL: Record<AIReadiness, string> = {
-  ready: "Gemini Nano listo (window.ai)",
-  downloading: "Descargando modelo on-device…",
-  unavailable: "Gemini Nano no disponible — usando heurística offline",
-  unsupported: "Este navegador no tiene window.ai — usando heurística offline",
+  ready: "Gemini Nano listo (Prompt API / LanguageModel)",
+  downloading: "Descargando el modelo on-device…",
+  unavailable: "Gemini Nano no disponible en este Chrome — usando heurística offline",
+  unsupported: "Este navegador no tiene la Prompt API — usando heurística offline",
 };
 
 const SOURCE_LABEL: Record<TriageSuggestion["source"], string> = {
@@ -196,6 +198,26 @@ export function ContextualTriagePanel() {
         </div>
       </header>
 
+      <div className="space-y-2 rounded-lg border border-slate-800 bg-slate-900/60 px-4 py-3 text-sm text-slate-400">
+        <p>
+          <strong className="text-slate-300">Qué hace este panel:</strong> escribe notas de campo
+          abajo (o edita los vitales directamente) y la prioridad de triage se recalcula sola, sin
+          botones — usando Gemini Nano dentro de este navegador cuando está disponible, o un
+          heurístico clínico determinístico cuando no lo está.
+        </p>
+        <span
+          className={`inline-block rounded px-1.5 py-0.5 text-[11px] font-semibold ${
+            isNativeWebMcpSupported()
+              ? "bg-emerald-950 text-emerald-400"
+              : "bg-slate-800 text-slate-500"
+          }`}
+        >
+          {isNativeWebMcpSupported()
+            ? "WebMCP nativo activo (document.modelContext)"
+            : "WebMCP nativo no detectado — actívalo en chrome://flags/#enable-webmcp-testing (Chrome 149+)"}
+        </span>
+      </div>
+
       <section className="space-y-3 rounded-lg border border-slate-800 bg-slate-900 p-4">
         <label className="block text-sm font-medium text-slate-300">
           Etiqueta del paciente
@@ -206,16 +228,27 @@ export function ContextualTriagePanel() {
           />
         </label>
 
-        <label className="block text-sm font-medium text-slate-300">
-          Notas de campo (escritas o dictadas — los vitales se extraen automáticamente)
+        <div className="flex items-center justify-between">
+          <label className="block text-sm font-medium text-slate-300" htmlFor="field-notes-input">
+            Notas de campo (los vitales se extraen automáticamente al escribir)
+          </label>
+          <VoiceNoteButton onTranscript={handleRawNotesChange} />
+        </div>
+        <p className="-mt-2 text-[11px] text-slate-500">
+          El dictado transcribe con Gemini Flash en la nube (audio nativo, sin modelo de
+          voz-a-texto aparte); la extracción de vitales y la prioridad siguen corriendo aquí en el
+          navegador.
+        </p>
+        <div>
           <textarea
+            id="field-notes-input"
             className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100"
             rows={3}
             placeholder="ej. RR 34, HR 128, cap refill 3s, unresponsive, not ambulatory"
             value={rawFieldNotes}
             onChange={(e) => handleRawNotesChange(e.target.value)}
           />
-        </label>
+        </div>
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <NumberField
@@ -306,18 +339,26 @@ export function ContextualTriagePanel() {
         <ToolCallConsole />
       </section>
 
-      <div className="flex items-center justify-between">
-        <button
-          type="button"
-          onClick={handleCacheOffline}
-          className="rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500"
-        >
-          Guardar registro offline
-        </button>
-        <span className="text-xs text-slate-500">
-          Cola offline: {offlineQueueSize}
-          {lastCachedAt ? ` · guardado ${new Date(lastCachedAt).toLocaleTimeString()}` : ""}
-        </span>
+      <div>
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            onClick={handleCacheOffline}
+            className="rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500"
+          >
+            Guardar registro offline
+          </button>
+          <span className="text-xs text-slate-500">
+            Cola offline: {offlineQueueSize}
+            {lastCachedAt ? ` · guardado ${new Date(lastCachedAt).toLocaleTimeString()}` : ""}
+          </span>
+        </div>
+        <p className="mt-1.5 text-[11px] text-slate-500">
+          Simula perder la señal a mitad de un rescate: guarda este registro con{" "}
+          <code className="rounded bg-slate-900 px-1 py-0.5 text-slate-400">cacheOfflineRecord</code>{" "}
+          en el almacenamiento local del navegador, para sincronizarlo con el orquestador cuando
+          vuelva la conexión.
+        </p>
       </div>
     </div>
   );

@@ -18,9 +18,9 @@ agentic-web-starter/
 │   └── shared-types/        Zod schemas + TS types shared by every app
 ├── apps/
 │   ├── web-client/          React + Vite + Tailwind — hosts all 3 demos as tabs
-│   │   ├── src/ai/nano/     Chrome Built-in AI (window.ai) wrapper + offline heuristic + demo mode
+│   │   ├── src/ai/nano/     Chrome Built-in AI (global LanguageModel) wrapper + offline heuristic + demo mode
 │   │   ├── src/ai/gemma/    MediaPipe LLM Inference wrapper for running Gemma in-browser
-│   │   ├── src/mcp/         WebMCP tools: extractVitals, updateTriageBadge, cacheOfflineRecord + call log
+│   │   ├── src/mcp/         WebMCP tools (document.modelContext): extractVitals, updateTriageBadge, cacheOfflineRecord + call log
 │   │   └── src/components/  ContextualTriagePanel · OrchestrationConsole · LocalGemmaAgentPanel
 │   ├── agent-orchestrator/  Node + Express + TypeScript cloud orchestrator
 │   │   ├── src/config/      @google/genai (gemini-2.5-flash) client setup
@@ -31,16 +31,26 @@ agentic-web-starter/
 
 ### Demo 1 · Gemini Nano + WebMCP (`apps/web-client`, tab "1")
 
-- **On-device AI** (`src/ai/nano/builtInAI.ts`): wraps `window.ai.languageModel`
-  for on-device inference, with readiness checks, a deterministic
+- **On-device AI** (`src/ai/nano/builtInAI.ts`): wraps the global
+  `LanguageModel` (Chrome's Prompt API, on by default since Chrome 148) for
+  on-device inference, with readiness checks, a deterministic
   START-protocol heuristic fallback, and a **demo mode** toggle that
   simulates a ready model so the talk never depends on the venue's Chrome
-  flags.
+  version.
 - **WebMCP tools** (`src/mcp/webMcpTools.ts`): `extractVitals`,
-  `updateTriageBadge`, `cacheOfflineRecord` — every invocation is logged to a
-  live **Tool Call Console** so the audience can see the pattern firing.
+  `updateTriageBadge`, `cacheOfflineRecord` — registered with the real
+  `document.modelContext` API (WebMCP, Origin Trial since Chrome 149 / Edge
+  150, or `chrome://flags/#enable-webmcp-testing` locally) when the browser
+  supports it, and always callable directly by the demo's own code either
+  way. Every invocation is logged to a live **Tool Call Console**.
 - **ContextualTriagePanel**: typing field notes auto-suggests a triage
   priority in real time, no manual prompt copy-pasting required.
+- **Voice dictation** (`VoiceNoteButton.tsx` + `POST /api/transcribe`): a real
+  optional feature, not just UI copy — records a voice note in the browser
+  and sends it to `agent-orchestrator`, which transcribes it using
+  `gemini-2.5-flash`'s native audio understanding (no separate speech-to-text
+  model). The transcript flows into the same `extractVitals` pipeline as
+  typed notes.
 
 ### Demo 2 · Gemini Flash multi-agent (`apps/web-client` tab "2" + `apps/agent-orchestrator`)
 
@@ -96,6 +106,13 @@ pnpm dev
   (`shared-types` first, then the three apps).
 - `pnpm lint` — runs ESLint across the whole workspace.
 
+## Deploying
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) — no Google-specific hosting is required
+(the static apps run anywhere, the backend runs on any Node host); it lays
+out a recommended Vercel + Google Cloud Run split, with a ready-to-use
+`Dockerfile` for the backend.
+
 ## Setting up the Gemma demo (optional)
 
 Demo 3 works out of the box in **safe mode** (no download needed). To show
@@ -115,10 +132,11 @@ manual license acceptance that can't be automated.
 
 ## Notes
 
-- `window.ai` is an experimental, origin-trial-gated Chrome API. The wrapper
-  in `builtInAI.ts` treats its absence as a normal runtime condition and
-  falls back to a deterministic START-protocol heuristic (or the demo-mode
-  simulation), so the triage panel always works regardless of the browser.
+- `LanguageModel` (Prompt API) and `document.modelContext` (WebMCP) are both
+  feature-detected — the code treats their absence as a normal runtime
+  condition and falls back to a deterministic START-protocol heuristic (or
+  the demo-mode simulation), so the triage panel always works regardless of
+  the browser or flags.
 - The orchestrator's hospital/supply data (`src/data/hospitals.ts`) is an
   in-memory seed dataset representing hospitals in Colombia's Eje Cafetero
   region; swap it for a real facility-status feed in production.

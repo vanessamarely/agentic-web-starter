@@ -73,7 +73,7 @@ export const modules: Module[] = [
               ],
               [
                 "Gemini Nano",
-                "On-device, dentro de Chrome (window.ai)",
+                "On-device, dentro de Chrome — global LanguageModel (Prompt API)",
                 "Latencia cero, funciona offline, gratis, privacidad — pero solo en Chrome y con capacidad limitada",
               ],
               [
@@ -121,16 +121,21 @@ export const modules: Module[] = [
         blocks: [
           {
             type: "p",
-            text: "Gemini Nano vive dentro de Chrome y se expone vía la Prompt API (window.ai.languageModel). No hay llamada de red, no hay costo por token, y funciona sin conexión — ideal para un responder en campo sin señal.",
+            text: "Gemini Nano vive dentro de Chrome y se expone vía la Prompt API — un global LanguageModel (no window.ai, ese namespace quedó atrás en los primeros origin trials). Está activada por defecto desde Chrome 148 en escritorio: LanguageModel.availability() te dice si el modelo está \"available\", \"downloadable\", \"downloading\" o \"unavailable\", y LanguageModel.create() abre una sesión. No hay llamada de red, no hay costo por token, y funciona sin conexión.",
           },
           {
             type: "p",
-            text: "WebMCP es la idea de exponer acciones de tu página (\"herramientas\") de forma estructurada para que un agente las invoque, igual que MCP lo hace para apps de escritorio. En vez de que el modelo solo genere texto, genera intención de acción, y tu código ejecuta esa acción sobre el DOM real.",
+            text: "WebMCP (document.modelContext) es la propuesta real de Google y Microsoft — en revisión por el W3C Web Machine Learning Community Group — para exponer acciones de tu página (\"herramientas\") de forma estructurada, igual que MCP lo hace para apps de escritorio. En vez de que el modelo solo genere texto, genera intención de acción, y tu código ejecuta esa acción sobre el DOM real.",
           },
           {
             type: "callout",
             kind: "info",
             text: "Sin WebMCP, terminas copiando y pegando la salida del modelo a mano. Con WebMCP, la salida del modelo se convierte directamente en una actualización de UI.",
+          },
+          {
+            type: "callout",
+            kind: "warning",
+            text: "WebMCP está en Origin Trial desde Chrome 149 (y Edge 150) — todavía no es estándar estable. Para probarlo localmente sin token: chrome://flags/#enable-webmcp-testing. El código de este repo funciona igual con o sin el flag activo, gracias a feature-detection.",
           },
         ],
       },
@@ -162,7 +167,7 @@ export const modules: Module[] = [
           },
           {
             type: "p",
-            text: "Las herramientas WebMCP son funciones normales con un manifiesto declarativo — la misma forma que usaremos para Gemini Flash en la Demo 2:",
+            text: "Cada herramienta es una función normal con un manifiesto declarativo — la misma forma que usaremos para Gemini Flash en la Demo 2:",
           },
           {
             type: "code",
@@ -178,6 +183,28 @@ export const modules: Module[] = [
   handler: ({ rawText }) => extractVitalsFromText(rawText),
 };`,
           },
+          {
+            type: "p",
+            text: "Y cuando el navegador sí implementa la API real, publicamos ese mismo catálogo con document.modelContext.registerTool() — la app funciona igual con o sin el flag, porque solo lo hace si la API existe:",
+          },
+          {
+            type: "code",
+            filename: "apps/web-client/src/mcp/webMcpTools.ts",
+            code: `export function registerWebMcpTools(): void {
+  const modelContext = document.modelContext;
+  if (!modelContext) return; // navegador sin WebMCP: seguimos usando los tools localmente
+
+  for (const tool of webMcpTools) {
+    void modelContext.registerTool({
+      name: tool.name,
+      description: tool.description,
+      inputSchema: tool.parameters,
+      execute: (input) => Promise.resolve(tool.handler(input)),
+      annotations: { readOnlyHint: tool.name === "extractVitals" },
+    });
+  }
+}`,
+          },
         ],
       },
       {
@@ -190,6 +217,7 @@ export const modules: Module[] = [
               "Abre la demo y activa \"Modo demo (simular Gemini Nano)\" si tu Chrome no tiene la Prompt API habilitada.",
               "Escribe en \"Notas de campo\": RR 34, HR 128, cap refill 3s, unresponsive, not ambulatory",
               "Observa cómo la prioridad cambia a IMMEDIATE en tiempo real, sin botones — y mira la consola WebMCP debajo para ver extractVitals y updateTriageBadge disparándose.",
+              "Prueba también \"🎙️ Dictar nota de voz\": graba las mismas notas habladas — Gemini Flash las transcribe en la nube (audio nativo, sin modelo de voz-a-texto aparte) y el texto entra al mismo pipeline de extracción.",
             ],
           },
           {
@@ -392,6 +420,28 @@ const text = await engine.generate(
     id: "cierre",
     title: "Cierre y recursos",
     steps: [
+      {
+        title: "Dónde desplegar esto",
+        durationMinutes: 1,
+        blocks: [
+          {
+            type: "p",
+            text: "Nada de esto necesita correr en infraestructura de Google. web-client y codelab son builds estáticos de Vite — van bien en Vercel, GitHub Pages, Firebase Hosting o Netlify. agent-orchestrator es un servidor Node/Express normal — corre en cualquier host con soporte para Node.",
+          },
+          {
+            type: "list",
+            items: [
+              "Estáticos (web-client, codelab): Vercel es lo más simple para este monorepo — cada app es un proyecto de Vercel con su propio \"Root Directory\".",
+              "Backend (agent-orchestrator): incluye un Dockerfile listo para Google Cloud Run (gcloud run deploy) — encaja bien con el tema de la charla, pero el mismo Dockerfile corre en Render, Fly.io o cualquier host de contenedores.",
+            ],
+          },
+          {
+            type: "callout",
+            kind: "info",
+            text: "Guía completa con comandos exactos en DEPLOYMENT.md, en la raíz del repo.",
+          },
+        ],
+      },
       {
         title: "Lo que te llevas hoy",
         durationMinutes: 2,

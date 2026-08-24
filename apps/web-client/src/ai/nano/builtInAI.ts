@@ -1,58 +1,47 @@
 import type { TriagePriority, Vitals } from "@agentic-web-starter/shared-types";
 
 /**
- * Ambient typings for Chrome's on-device "Built-in AI" APIs
- * (window.ai.languageModel / window.ai.summarizer). These are experimental
- * origin-trial APIs, so every call site must treat their absence as a normal
- * runtime condition, not an error.
+ * Ambient typings for Chrome's built-in Prompt API. The global entry point
+ * is `LanguageModel` — NOT `window.ai.languageModel`. That namespaced shape
+ * existed only in early origin trials and was retired before the API
+ * shipped on-by-default in Chrome 148 (desktop). See
+ * https://developer.chrome.com/docs/ai/prompt-api
  */
-interface LanguageModelCapabilities {
-  available: "readily" | "after-download" | "no";
-}
+type LanguageModelAvailability = "unavailable" | "downloadable" | "downloading" | "available";
 
 interface LanguageModelSessionHandle {
   prompt(input: string): Promise<string>;
   destroy(): void;
 }
 
-interface LanguageModelFactory {
-  capabilities(): Promise<LanguageModelCapabilities>;
+interface LanguageModelInitialPrompt {
+  role: "system" | "user" | "assistant";
+  content: string;
+}
+
+interface LanguageModelStatic {
+  availability(): Promise<LanguageModelAvailability>;
   create(options?: {
-    systemPrompt?: string;
+    initialPrompts?: LanguageModelInitialPrompt[];
     temperature?: number;
     topK?: number;
   }): Promise<LanguageModelSessionHandle>;
 }
 
-interface SummarizerFactory {
-  capabilities(): Promise<LanguageModelCapabilities>;
-  create(options?: {
-    type?: "key-points" | "tl;dr" | "teaser" | "headline";
-    length?: "short" | "medium" | "long";
-  }): Promise<{
-    summarize(input: string): Promise<string>;
-    destroy(): void;
-  }>;
-}
-
 declare global {
   interface Window {
-    ai?: {
-      languageModel?: LanguageModelFactory;
-      summarizer?: SummarizerFactory;
-    };
+    LanguageModel?: LanguageModelStatic;
   }
 }
 
 export type AIReadiness = "ready" | "downloading" | "unavailable" | "unsupported";
 
 /**
- * Chrome's on-device Prompt API requires enabling flags/an origin trial, so
- * it is frequently unavailable on a conference laptop or projector setup.
- * This demo-mode switch lets a presenter force the "ready" path so the talk
- * never depends on the venue's Chrome flags or network — every response is
- * clearly labeled "(simulado)" in the UI so the audience knows what they're
- * seeing when it's active.
+ * Chrome's on-device Prompt API ships on-by-default since Chrome 148, but a
+ * conference laptop/projector setup may still run an older Chrome. This
+ * demo-mode switch lets a presenter force the "ready" path so the talk
+ * never depends on the venue's Chrome version — every response is clearly
+ * labeled "(simulado)" in the UI so the audience knows what they're seeing.
  */
 let demoModeEnabled = false;
 
@@ -66,12 +55,12 @@ export function isNanoDemoMode(): boolean {
 
 export async function getLanguageModelReadiness(): Promise<AIReadiness> {
   if (demoModeEnabled) return "ready";
-  const languageModel = window.ai?.languageModel;
-  if (!languageModel) return "unsupported";
+  const LanguageModel = window.LanguageModel;
+  if (!LanguageModel) return "unsupported";
   try {
-    const { available } = await languageModel.capabilities();
-    if (available === "readily") return "ready";
-    if (available === "after-download") return "downloading";
+    const availability = await LanguageModel.availability();
+    if (availability === "available") return "ready";
+    if (availability === "downloadable" || availability === "downloading") return "downloading";
     return "unavailable";
   } catch {
     return "unavailable";
@@ -118,13 +107,13 @@ function createSimulatedSession(): TriageAISession {
 
 export async function createTriageLanguageModelSession(): Promise<TriageAISession | null> {
   if (demoModeEnabled) return createSimulatedSession();
-  const languageModel = window.ai?.languageModel;
-  if (!languageModel) return null;
+  const LanguageModel = window.LanguageModel;
+  if (!LanguageModel) return null;
   try {
-    const readiness = await getLanguageModelReadiness();
-    if (readiness !== "ready") return null;
-    const session = await languageModel.create({
-      systemPrompt: TRIAGE_SYSTEM_PROMPT,
+    const availability = await LanguageModel.availability();
+    if (availability !== "available") return null;
+    const session = await LanguageModel.create({
+      initialPrompts: [{ role: "system", content: TRIAGE_SYSTEM_PROMPT }],
       temperature: 0.1,
       topK: 3,
     });
@@ -133,23 +122,6 @@ export async function createTriageLanguageModelSession(): Promise<TriageAISessio
       prompt: (input: string) => session.prompt(input),
       destroy: () => session.destroy(),
     };
-  } catch {
-    return null;
-  }
-}
-
-export async function summarizeClinicalNotes(text: string): Promise<string | null> {
-  const summarizer = window.ai?.summarizer;
-  if (!summarizer || text.trim().length === 0) return null;
-  try {
-    const { available } = await summarizer.capabilities();
-    if (available === "no") return null;
-    const instance = await summarizer.create({ type: "key-points", length: "short" });
-    try {
-      return await instance.summarize(text);
-    } finally {
-      instance.destroy();
-    }
   } catch {
     return null;
   }
