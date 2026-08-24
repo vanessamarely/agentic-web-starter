@@ -108,10 +108,12 @@ pnpm dev
 
 ## Deploying
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) — no Google-specific hosting is required
-(the static apps run anywhere, the backend runs on any Node host); it lays
-out a recommended Vercel + Google Cloud Run split, with a ready-to-use
-`Dockerfile` for the backend.
+See [DEPLOYMENT.md](DEPLOYMENT.md) — the recommended path is Firebase
+Hosting (static apps) + Cloud Run (backend), an all-Google stack that stays
+effectively free at demo-audience traffic (`firebase.json` and a
+Cloud-Run-ready `Dockerfile` are already included). Non-Google hosting
+(Vercel, GitHub Pages) is also documented as an alternative if you don't
+need the "runs on Google" story.
 
 ## Setting up the Gemma demo (optional)
 

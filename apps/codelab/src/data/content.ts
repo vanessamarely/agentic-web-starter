@@ -426,19 +426,20 @@ const text = await engine.generate(
         blocks: [
           {
             type: "p",
-            text: "Nada de esto necesita correr en infraestructura de Google. web-client y codelab son builds estáticos de Vite — van bien en Vercel, GitHub Pages, Firebase Hosting o Netlify. agent-orchestrator es un servidor Node/Express normal — corre en cualquier host con soporte para Node.",
+            text: "Técnicamente nada de esto necesita correr en infraestructura de Google — pero si quieres que la demo pública demuestre el ecosistema completo (y no solo la API de Gemini), tiene sentido desplegarla 100% en productos de Google: Firebase Hosting para los dos apps estáticos y Cloud Run para el backend.",
           },
           {
             type: "list",
             items: [
-              "Estáticos (web-client, codelab): Vercel es lo más simple para este monorepo — cada app es un proyecto de Vercel con su propio \"Root Directory\".",
-              "Backend (agent-orchestrator): incluye un Dockerfile listo para Google Cloud Run (gcloud run deploy) — encaja bien con el tema de la charla, pero el mismo Dockerfile corre en Render, Fly.io o cualquier host de contenedores.",
+              "Estáticos (web-client, codelab): Firebase Hosting — capa gratuita generosa (10GB, 360MB/día), sin tarjeta de crédito, URL *.web.app propia por app.",
+              "Backend (agent-orchestrator): incluye un Dockerfile listo para gcloud run deploy. Cloud Run escala a cero — no cobra nada entre demos.",
+              "Firebase Hosting puede redirigir /api/** directamente al servicio de Cloud Run (ya configurado en firebase.json), así que todo queda bajo un solo dominio sin lidiar con CORS.",
             ],
           },
           {
             type: "callout",
-            kind: "info",
-            text: "Guía completa con comandos exactos en DEPLOYMENT.md, en la raíz del repo.",
+            kind: "success",
+            text: "Costo esperado desplegando así para una charla: prácticamente $0 — ninguno de los dos productos cobra por estar inactivo. Guía completa con comandos exactos en DEPLOYMENT.md, en la raíz del repo.",
           },
         ],
       },

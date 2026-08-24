@@ -12,3 +12,5 @@ coverage/
 *.tsbuildinfo
 apps/web-client/public/models/*
 !apps/web-client/public/models/.gitkeep
+.firebaserc
+.firebase/
