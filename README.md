@@ -23,7 +23,7 @@ agentic-web-starter/
 │   │   ├── src/mcp/         WebMCP tools (document.modelContext): extractVitals, updateTriageBadge, cacheOfflineRecord + call log
 │   │   └── src/components/  ContextualTriagePanel · OrchestrationConsole · LocalGemmaAgentPanel
 │   ├── agent-orchestrator/  Node + Express + TypeScript cloud orchestrator
-│   │   ├── src/config/      @google/genai (gemini-2.5-flash) client setup
+│   │   ├── src/config/      @google/genai (gemini-3.7-flash) client setup
 │   │   ├── src/agents/      Triage Validator, Hospital Router, Supply Chain agents
 │   │   └── src/mcp/         Tool declarations/handlers shared with Gemini function calling
 │   └── codelab/             Google-Codelabs-styled walkthrough of the whole talk + all 3 demos
@@ -48,15 +48,18 @@ agentic-web-starter/
 - **Voice dictation** (`VoiceNoteButton.tsx` + `POST /api/transcribe`): a real
   optional feature, not just UI copy — records a voice note in the browser
   and sends it to `agent-orchestrator`, which transcribes it using
-  `gemini-2.5-flash`'s native audio understanding (no separate speech-to-text
+  `gemini-3.7-flash`'s native audio understanding (no separate speech-to-text
   model). The transcript flows into the same `extractVitals` pipeline as
   typed notes.
 
 ### Demo 2 · Gemini Flash multi-agent (`apps/web-client` tab "2" + `apps/agent-orchestrator`)
 
-`POST /api/orchestrate` runs three cooperating Gemini-powered agents in
-parallel, each with its own tool declarations resolved through a shared
-function-calling loop (`src/agents/agentRuntime.ts`):
+`POST /api/orchestrate` runs three cooperating agents in parallel, each a
+real `LlmAgent` built with Google's **Agent Development Kit**
+(`@google/adk`, TypeScript SDK) — not a hand-rolled function-calling loop.
+`src/agents/adkRuntime.ts` adapts this project's shared tool definitions
+into ADK `FunctionTool`s and drives each agent through an ADK
+`InMemoryRunner`, collecting a tool-call trace from its event stream:
 
 - **Triage Validator** — cross-checks a reported priority against raw vitals.
 - **Hospital Router** — matches a patient's priority to the best-fit

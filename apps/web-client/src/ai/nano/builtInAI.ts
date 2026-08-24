@@ -9,8 +9,30 @@ import type { TriagePriority, Vitals } from "@agentic-web-starter/shared-types";
  */
 type LanguageModelAvailability = "unavailable" | "downloadable" | "downloading" | "available";
 
+type LanguageModelExpectedInputType = "text" | "image" | "audio";
+
+interface LanguageModelExpectedInput {
+  type: LanguageModelExpectedInputType;
+  languages?: string[];
+}
+
+/** A multimodal prompt part — image/audio support is a newer, still-experimental extension to the Prompt API. */
+type LanguageModelContentPart =
+  | { type: "text"; value: string }
+  | { type: "image"; value: ImageBitmapSource }
+  | { type: "audio"; value: Blob };
+
+interface LanguageModelMultimodalMessage {
+  role: "user" | "assistant";
+  content: LanguageModelContentPart[];
+}
+
+interface LanguageModelAvailabilityOptions {
+  expectedInputs?: LanguageModelExpectedInput[];
+}
+
 interface LanguageModelSessionHandle {
-  prompt(input: string): Promise<string>;
+  prompt(input: string | LanguageModelMultimodalMessage[]): Promise<string>;
   destroy(): void;
 }
 
@@ -20,9 +42,10 @@ interface LanguageModelInitialPrompt {
 }
 
 interface LanguageModelStatic {
-  availability(): Promise<LanguageModelAvailability>;
+  availability(options?: LanguageModelAvailabilityOptions): Promise<LanguageModelAvailability>;
   create(options?: {
     initialPrompts?: LanguageModelInitialPrompt[];
+    expectedInputs?: LanguageModelExpectedInput[];
     temperature?: number;
     topK?: number;
   }): Promise<LanguageModelSessionHandle>;
@@ -225,5 +248,78 @@ export async function suggestTriagePriority(
     return { ...parsed, source: session.simulated ? "on-device-ai-simulated" : "on-device-ai" };
   } catch {
     return suggestTriagePriorityHeuristic(vitals);
+  }
+}
+
+/**
+ * On-device, multimodal scene/injury photo analysis. This is a newer,
+ * still-experimental extension to the Prompt API (image/audio input) — Chrome
+ * may support text prompting fine while still lacking (or requiring specific
+ * hardware for) image input, so this is feature-detected independently of
+ * `getLanguageModelReadiness`.
+ */
+export interface TriageImageSession {
+  analyze(image: ImageBitmapSource, contextText: string): Promise<string>;
+  destroy(): void;
+  readonly simulated: boolean;
+}
+
+const IMAGE_ANALYSIS_PROMPT =
+  "You are a field triage assistant. Looking only at what is visibly observable in this photo from an emergency scene, describe in one short clinical sentence any injury severity or hazards relevant to triage. Do not diagnose conditions you cannot see.";
+
+export type ImageAnalysisReadiness = "ready" | "unavailable";
+
+export async function getImageAnalysisReadiness(): Promise<ImageAnalysisReadiness> {
+  if (demoModeEnabled) return "ready";
+  const LanguageModel = window.LanguageModel;
+  if (!LanguageModel) return "unavailable";
+  try {
+    const availability = await LanguageModel.availability({ expectedInputs: [{ type: "image" }] });
+    return availability === "available" ? "ready" : "unavailable";
+  } catch {
+    return "unavailable";
+  }
+}
+
+function createSimulatedImageSession(): TriageImageSession {
+  return {
+    simulated: true,
+    analyze: async () =>
+      'Modo demo activo: no se analizó contenido real de la imagen. Desactiva "Modo demo" en un Chrome con soporte de entrada de imagen on-device (Prompt API multimodal) para ver un análisis real.',
+    destroy: () => {},
+  };
+}
+
+export async function createTriageImageSession(): Promise<TriageImageSession | null> {
+  if (demoModeEnabled) return createSimulatedImageSession();
+  const LanguageModel = window.LanguageModel;
+  if (!LanguageModel) return null;
+  try {
+    const availability = await LanguageModel.availability({ expectedInputs: [{ type: "image" }] });
+    if (availability !== "available") return null;
+    const session = await LanguageModel.create({
+      expectedInputs: [{ type: "text" }, { type: "image" }],
+    });
+    return {
+      simulated: false,
+      analyze: (image, contextText) =>
+        session.prompt([
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                value: contextText
+                  ? `${IMAGE_ANALYSIS_PROMPT} Contexto adicional del responder: ${contextText}`
+                  : IMAGE_ANALYSIS_PROMPT,
+              },
+              { type: "image", value: image },
+            ],
+          },
+        ]),
+      destroy: () => session.destroy(),
+    };
+  } catch {
+    return null;
   }
 }

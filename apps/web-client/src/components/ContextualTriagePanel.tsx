@@ -6,6 +6,7 @@ import type {
   Vitals,
 } from "@agentic-web-starter/shared-types";
 import {
+  createTriageImageSession,
   createTriageLanguageModelSession,
   getLanguageModelReadiness,
   isNanoDemoMode,
@@ -70,6 +71,12 @@ export function ContextualTriagePanel() {
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
   const [offlineQueueSize, setOfflineQueueSize] = useState(() => getOfflineQueue().length);
   const [lastCachedAt, setLastCachedAt] = useState<string | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [imageAnalysis, setImageAnalysis] = useState<{ text: string; simulated: boolean } | null>(
+    null,
+  );
+  const [imageAnalyzing, setImageAnalyzing] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
 
   const sessionRef = useRef<TriageAISession | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -128,6 +135,12 @@ export function ContextualTriagePanel() {
     });
   }, [suggestion]);
 
+  useEffect(() => {
+    return () => {
+      if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+    };
+  }, [imagePreviewUrl]);
+
   const handleToggleDemoMode = useCallback((enabled: boolean) => {
     setNanoDemoMode(enabled);
     setDemoMode(enabled);
@@ -144,6 +157,38 @@ export function ContextualTriagePanel() {
   const updateVital = useCallback(<K extends keyof Vitals>(key: K, value: Vitals[K]) => {
     setVitals((current) => ({ ...current, [key]: value }));
   }, []);
+
+  const handleImageSelected = useCallback(
+    async (file: File) => {
+      setImagePreviewUrl((previous) => {
+        if (previous) URL.revokeObjectURL(previous);
+        return URL.createObjectURL(file);
+      });
+      setImageAnalysis(null);
+      setImageError(null);
+      setImageAnalyzing(true);
+
+      const session = await createTriageImageSession();
+      if (!session) {
+        setImageAnalyzing(false);
+        setImageError(
+          "Este navegador no soporta entrada de imagen on-device (Prompt API multimodal), o el modelo aún no está disponible.",
+        );
+        return;
+      }
+
+      try {
+        const text = await session.analyze(file, injuries || rawFieldNotes);
+        setImageAnalysis({ text: text.trim(), simulated: session.simulated });
+      } catch {
+        setImageError("No se pudo analizar la imagen en este intento.");
+      } finally {
+        session.destroy();
+        setImageAnalyzing(false);
+      }
+    },
+    [injuries, rawFieldNotes],
+  );
 
   const handleCacheOffline = useCallback(async () => {
     const now = new Date().toISOString();
@@ -310,6 +355,53 @@ export function ContextualTriagePanel() {
             onChange={(e) => setInjuries(e.target.value)}
           />
         </label>
+      </section>
+
+      <section className="space-y-3 rounded-lg border border-slate-800 bg-slate-900 p-4">
+        <div>
+          <label className="block text-sm font-medium text-slate-300" htmlFor="scene-photo-input">
+            📷 Foto de la escena o la lesión (opcional)
+          </label>
+          <p className="mt-0.5 text-[11px] text-slate-500">
+            Se analiza on-device con Gemini Nano (entrada de imagen multimodal) — la foto nunca
+            sale del navegador. Es contexto adicional, no reemplaza los vitales en la decisión de
+            prioridad.
+          </p>
+        </div>
+        <input
+          id="scene-photo-input"
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void handleImageSelected(file);
+          }}
+          className="block w-full text-xs text-slate-400 file:mr-3 file:rounded file:border-0 file:bg-slate-800 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-slate-200 hover:file:bg-slate-700"
+        />
+        {imagePreviewUrl && (
+          <div className="flex gap-3">
+            <img
+              src={imagePreviewUrl}
+              alt="Vista previa de la escena"
+              className="h-24 w-24 rounded border border-slate-700 object-cover"
+            />
+            <div className="flex-1 text-sm">
+              {imageAnalyzing && <p className="text-slate-500">Analizando imagen on-device…</p>}
+              {imageError && <p className="text-amber-500">{imageError}</p>}
+              {imageAnalysis && (
+                <div>
+                  <p className="text-slate-300">{imageAnalysis.text}</p>
+                  <p className="mt-1 text-[11px] uppercase tracking-wide text-slate-600">
+                    {imageAnalysis.simulated
+                      ? "Gemini Nano (simulado para demo)"
+                      : "Gemini Nano (on-device, multimodal)"}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </section>
 
       <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">

@@ -97,7 +97,7 @@ export const modules: Module[] = [
             items: [
               "Google AI Studio — prototipa con prompts y obtén tu API key gratis en minutos.",
               "Genkit — framework open-source (JS/Go/Python) para construir flujos y agentes con trazabilidad y evaluación integradas.",
-              "ADK (Agent Development Kit) — framework de Google para construir y orquestar sistemas multi-agente en producción.",
+              "ADK (Agent Development Kit) — framework de Google para construir y orquestar sistemas multi-agente en producción. Los tres agentes de la Demo 2 están construidos con @google/adk de verdad, no a mano.",
               "Google AI Edge / MediaPipe — runtime para correr modelos (incluido Gemma) on-device en web, Android e iOS.",
               "Firebase AI Logic — llama a Gemini directo desde tu app cliente sin exponer tu API key.",
             ],
@@ -240,11 +240,15 @@ export const modules: Module[] = [
         blocks: [
           {
             type: "p",
-            text: "Gemini Flash es rápido y barato — perfecto para orquestar muchas llamadas de function calling en paralelo. En vez de un único prompt gigante, dividimos el problema en agentes especializados, cada uno con su propio set de herramientas.",
+            text: "Gemini Flash es rápido y barato — perfecto para orquestar muchas llamadas de function calling en paralelo. En vez de un único prompt gigante, dividimos el problema en agentes especializados, cada uno con su propio set de herramientas. Este proyecto usa gemini-3.7-flash, el modelo Flash recomendado actualmente (gemini-2.5-flash sigue funcionando, pero 3.7 es la versión vigente).",
           },
           {
             type: "p",
             text: "En este proyecto: un Triage Validator (valida la prioridad clínica), un Hospital Router (encuentra el mejor hospital con capacidad) y un Supply Chain Agent (asigna insumos médicos) — los tres corren en paralelo y comparten el mismo patrón de tool-calling.",
+          },
+          {
+            type: "p",
+            text: "Los tres están construidos con el Agent Development Kit de Google (@google/adk) — no es un framework solo de Python: tiene SDK oficial de TypeScript, así que corre directo en este mismo backend Node/Express. ADK maneja el loop de tool-calling por ti (pedir al modelo, ejecutar la herramienta, reenviar el resultado, repetir) — tú solo defines el agente y sus herramientas.",
           },
         ],
       },
@@ -254,39 +258,37 @@ export const modules: Module[] = [
         blocks: [
           {
             type: "p",
-            text: "Un único loop de function calling, reutilizado por los tres agentes — pide al modelo, ejecuta las herramientas que pida, le devuelve el resultado, repite hasta obtener una respuesta final:",
-          },
-          {
-            type: "code",
-            filename: "apps/agent-orchestrator/src/agents/agentRuntime.ts",
-            code: `const response = await genAI.models.generateContent({
-  model: GEMINI_MODEL,
-  contents,
-  config: { systemInstruction, tools: [{ functionDeclarations }] },
-});
-
-const functionCalls = response.functionCalls ?? [];
-if (functionCalls.length === 0) return { finalText: response.text ?? "", toolCallsExecuted };
-
-for (const call of functionCalls) {
-  const tool = toolsByName.get(call.name ?? "");
-  const result = tool ? await tool.handler(call.args ?? {}) : { error: "unknown tool" };
-  // ...se reenvía como functionResponse y se repite el loop
-}`,
-          },
-          {
-            type: "p",
-            text: "Cada agente es solo una instrucción de sistema + su lista de herramientas:",
+            text: "Cada agente es un LlmAgent de ADK con su instrucción y sus herramientas — las mismas herramientas MCP que ya viste, adaptadas a FunctionTool de ADK:",
           },
           {
             type: "code",
             filename: "apps/agent-orchestrator/src/agents/triageValidator.ts",
-            code: `const result = await runAgentTurn({
-  systemInstruction: SYSTEM_INSTRUCTION,
-  userPrompt,
+            code: `const triageValidatorAgent = createAdkAgent({
+  name: "triage_validator",
+  description: "Cross-checks a reported START priority against raw vitals.",
+  instruction: SYSTEM_INSTRUCTION,
   tools: triageValidatorTools, // [validateClinicalUrgencyTool]
-  maxToolRoundTrips: 2,
-});`,
+});
+
+const result = await runAdkAgentTurn(triageValidatorAgent, userPrompt);`,
+          },
+          {
+            type: "p",
+            text: "ADK ejecuta las herramientas internamente — tú solo recorres el stream de eventos que va generando para armar el trace que ves en la consola de la demo:",
+          },
+          {
+            type: "code",
+            filename: "apps/agent-orchestrator/src/agents/adkRuntime.ts",
+            code: `const runner = new InMemoryRunner({ agent });
+
+for await (const event of runner.runEphemeral({
+  userId: "agentic-web-starter",
+  newMessage: { role: "user", parts: [{ text: userPrompt }] },
+})) {
+  for (const call of getFunctionCalls(event)) { /* ...guarda name + args */ }
+  for (const response of getFunctionResponses(event)) { /* ...empareja por id, guarda result */ }
+  if (isFinalResponse(event)) finalText = stringifyContent(event);
+}`,
           },
         ],
       },

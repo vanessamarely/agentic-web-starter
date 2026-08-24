@@ -10,4 +10,4 @@ if (!apiKey) {
 
 export const genAI = new GoogleGenAI({ apiKey });
 
-export const GEMINI_MODEL = "gemini-2.5-flash";
+export const GEMINI_MODEL = "gemini-3.7-flash";
