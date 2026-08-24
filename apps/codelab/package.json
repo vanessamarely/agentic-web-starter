@@ -1,5 +1,5 @@
 {
-  "name": "@agentic-web-starter/web-client",
+  "name": "@agentic-web-starter/codelab",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -10,11 +10,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@agentic-web-starter/shared-types": "workspace:*",
-    "@mediapipe/tasks-genai": "^0.10.29",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8",
-    "zod": "^3.25.76"
+    "react-dom": "^19.2.8"
   },
   "devDependencies": {
     "@types/react": "^19.2.18",

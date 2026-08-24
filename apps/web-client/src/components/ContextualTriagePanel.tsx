@@ -8,6 +8,8 @@ import type {
 import {
   createTriageLanguageModelSession,
   getLanguageModelReadiness,
+  isNanoDemoMode,
+  setNanoDemoMode,
   suggestTriagePriority,
   type AIReadiness,
   type TriageAISession,
@@ -19,6 +21,8 @@ import {
   getOfflineQueue,
   updateTriageBadgeTool,
 } from "../mcp/webMcpTools";
+import { logToolCall } from "../mcp/toolCallLog";
+import { ToolCallConsole } from "./ToolCallConsole";
 
 const DEFAULT_VITALS: Vitals = {
   respiratoryRate: 16,
@@ -38,22 +42,29 @@ const PRIORITY_STYLES: Record<TriagePriority, { bg: string; text: string; label:
 };
 
 const READINESS_LABEL: Record<AIReadiness, string> = {
-  ready: "On-device AI ready",
-  downloading: "On-device model downloading…",
-  unavailable: "On-device AI unavailable — using offline heuristic",
-  unsupported: "Browser has no window.ai — using offline heuristic",
+  ready: "Gemini Nano listo (window.ai)",
+  downloading: "Descargando modelo on-device…",
+  unavailable: "Gemini Nano no disponible — usando heurística offline",
+  unsupported: "Este navegador no tiene window.ai — usando heurística offline",
+};
+
+const SOURCE_LABEL: Record<TriageSuggestion["source"], string> = {
+  "on-device-ai": "Gemini Nano (on-device)",
+  "on-device-ai-simulated": "Gemini Nano (simulado para demo)",
+  "offline-heuristic": "heurística offline",
 };
 
 const BADGE_ELEMENT_ID = "triage-priority-badge";
 const DEBOUNCE_MS = 400;
 
 export function ContextualTriagePanel() {
-  const [patientLabel, setPatientLabel] = useState("Patient #1");
+  const [patientLabel, setPatientLabel] = useState("Paciente #1");
   const [rawFieldNotes, setRawFieldNotes] = useState("");
   const [vitals, setVitals] = useState<Vitals>(DEFAULT_VITALS);
   const [injuries, setInjuries] = useState("");
   const [suggestion, setSuggestion] = useState<TriageSuggestion | null>(null);
   const [readiness, setReadiness] = useState<AIReadiness>("unsupported");
+  const [demoMode, setDemoMode] = useState(() => isNanoDemoMode());
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
   const [offlineQueueSize, setOfflineQueueSize] = useState(() => getOfflineQueue().length);
   const [lastCachedAt, setLastCachedAt] = useState<string | null>(null);
@@ -64,6 +75,8 @@ export function ContextualTriagePanel() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      sessionRef.current?.destroy();
+      sessionRef.current = null;
       const r = await getLanguageModelReadiness();
       if (cancelled) return;
       setReadiness(r);
@@ -73,9 +86,8 @@ export function ContextualTriagePanel() {
     })();
     return () => {
       cancelled = true;
-      sessionRef.current?.destroy();
     };
-  }, []);
+  }, [demoMode]);
 
   useEffect(() => {
     const goOnline = () => setIsOnline(true);
@@ -88,8 +100,8 @@ export function ContextualTriagePanel() {
     };
   }, []);
 
-  // Reactive, no manual "run" button: every vitals change re-triggers a
-  // debounced triage suggestion, on-device when possible, heuristic otherwise.
+  // Reactiva, sin botón manual: cada cambio en los vitales dispara (con
+  // debounce) una nueva sugerencia de triage, on-device cuando es posible.
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
@@ -102,12 +114,27 @@ export function ContextualTriagePanel() {
 
   useEffect(() => {
     if (!suggestion) return;
-    updateTriageBadgeTool.handler({ elementId: BADGE_ELEMENT_ID, priority: suggestion.priority });
+    const result = updateTriageBadgeTool.handler({
+      elementId: BADGE_ELEMENT_ID,
+      priority: suggestion.priority,
+    });
+    logToolCall({
+      toolName: "updateTriageBadge",
+      args: { elementId: BADGE_ELEMENT_ID, priority: suggestion.priority },
+      result,
+      agent: suggestion.source === "offline-heuristic" ? "manual" : "gemini-nano",
+    });
   }, [suggestion]);
+
+  const handleToggleDemoMode = useCallback((enabled: boolean) => {
+    setNanoDemoMode(enabled);
+    setDemoMode(enabled);
+  }, []);
 
   const handleRawNotesChange = useCallback((value: string) => {
     setRawFieldNotes(value);
     const extracted = extractVitalsTool.handler({ rawText: value });
+    logToolCall({ toolName: "extractVitals", args: { rawText: value }, result: extracted, agent: "manual" });
     if (Object.keys(extracted).length === 0) return;
     setVitals((current) => ({ ...current, ...extracted }));
   }, []);
@@ -128,10 +155,11 @@ export function ContextualTriagePanel() {
       clinicalNotes: rawFieldNotes,
       priority: suggestion?.priority ?? "DELAYED",
       priorityRationale: suggestion?.rationale ?? "",
-      suggestedByAI: suggestion?.source === "on-device-ai",
+      suggestedByAI: suggestion?.source !== "offline-heuristic",
       offlineSynced: false,
     };
     const { queueSize } = await cacheOfflineRecordTool.handler({ record });
+    logToolCall({ toolName: "cacheOfflineRecord", args: { recordId: record.id }, result: { queueSize }, agent: "manual" });
     setOfflineQueueSize(queueSize);
     setLastCachedAt(now);
   }, [injuries, patientLabel, rawFieldNotes, suggestion, vitals]);
@@ -145,21 +173,32 @@ export function ContextualTriagePanel() {
     <div className="mx-auto max-w-3xl space-y-6 p-6">
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-100">Contextual Triage Panel</h1>
+          <h1 className="text-2xl font-bold text-slate-100">Panel de Triage Contextual</h1>
           <p className="text-sm text-slate-400">{READINESS_LABEL[readiness]}</p>
         </div>
-        <span
-          className={`rounded-full px-3 py-1 text-xs font-semibold ${
-            isOnline ? "bg-green-900 text-green-300" : "bg-red-900 text-red-300"
-          }`}
-        >
-          {isOnline ? "ONLINE" : "OFFLINE"}
-        </span>
+        <div className="flex flex-col items-end gap-1.5">
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-semibold ${
+              isOnline ? "bg-green-900 text-green-300" : "bg-red-900 text-red-300"
+            }`}
+          >
+            {isOnline ? "EN LÍNEA" : "SIN CONEXIÓN"}
+          </span>
+          <label className="flex items-center gap-1.5 text-[11px] text-slate-500">
+            <input
+              type="checkbox"
+              checked={demoMode}
+              onChange={(e) => handleToggleDemoMode(e.target.checked)}
+              className="accent-sky-500"
+            />
+            Modo demo (simular Gemini Nano)
+          </label>
+        </div>
       </header>
 
       <section className="space-y-3 rounded-lg border border-slate-800 bg-slate-900 p-4">
         <label className="block text-sm font-medium text-slate-300">
-          Patient label
+          Etiqueta del paciente
           <input
             className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100"
             value={patientLabel}
@@ -168,11 +207,11 @@ export function ContextualTriagePanel() {
         </label>
 
         <label className="block text-sm font-medium text-slate-300">
-          Field notes (typed or dictated — vitals are auto-extracted as you type)
+          Notas de campo (escritas o dictadas — los vitales se extraen automáticamente)
           <textarea
             className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100"
             rows={3}
-            placeholder="e.g. RR 34, HR 128, cap refill 3s, unresponsive, not ambulatory"
+            placeholder="ej. RR 34, HR 128, cap refill 3s, unresponsive, not ambulatory"
             value={rawFieldNotes}
             onChange={(e) => handleRawNotesChange(e.target.value)}
           />
@@ -180,17 +219,17 @@ export function ContextualTriagePanel() {
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <NumberField
-            label="Respiratory rate"
+            label="Frec. respiratoria"
             value={vitals.respiratoryRate}
             onChange={(v) => updateVital("respiratoryRate", v)}
           />
           <NumberField
-            label="Pulse rate"
+            label="Pulso"
             value={vitals.pulseRate}
             onChange={(v) => updateVital("pulseRate", v)}
           />
           <NumberField
-            label="Cap refill (s)"
+            label="Llenado capilar (s)"
             value={vitals.capillaryRefillSeconds}
             step={0.1}
             onChange={(v) => updateVital("capillaryRefillSeconds", v)}
@@ -201,21 +240,21 @@ export function ContextualTriagePanel() {
             onChange={(v) => updateVital("spo2", v)}
           />
           <NumberField
-            label="Systolic BP"
+            label="Presión sistólica"
             value={vitals.systolicBP ?? 0}
             onChange={(v) => updateVital("systolicBP", v)}
           />
           <label className="block text-sm font-medium text-slate-300">
-            Consciousness
+            Consciencia
             <select
               className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100"
               value={vitals.consciousness}
               onChange={(e) => updateVital("consciousness", e.target.value as ConsciousnessLevel)}
             >
-              <option value="ALERT">Alert</option>
-              <option value="VERBAL">Responds to verbal</option>
-              <option value="PAIN">Responds to pain</option>
-              <option value="UNRESPONSIVE">Unresponsive</option>
+              <option value="ALERT">Alerta</option>
+              <option value="VERBAL">Responde a la voz</option>
+              <option value="PAIN">Responde al dolor</option>
+              <option value="UNRESPONSIVE">No responde</option>
             </select>
           </label>
         </div>
@@ -226,11 +265,11 @@ export function ContextualTriagePanel() {
             checked={vitals.ambulatory}
             onChange={(e) => updateVital("ambulatory", e.target.checked)}
           />
-          Ambulatory (walking wounded)
+          Ambulatorio (puede caminar)
         </label>
 
         <label className="block text-sm font-medium text-slate-300">
-          Injuries
+          Lesiones
           <textarea
             className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100"
             rows={2}
@@ -242,7 +281,7 @@ export function ContextualTriagePanel() {
 
       <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-slate-300">Suggested priority</span>
+          <span className="text-sm font-medium text-slate-300">Prioridad sugerida</span>
           <span
             id={BADGE_ELEMENT_ID}
             data-priority={suggestion?.priority ?? ""}
@@ -257,10 +296,14 @@ export function ContextualTriagePanel() {
           <p className="mt-2 text-sm text-slate-400">
             {suggestion.rationale}{" "}
             <span className="text-xs uppercase tracking-wide text-slate-600">
-              ({suggestion.source === "on-device-ai" ? "on-device AI" : "offline heuristic"})
+              ({SOURCE_LABEL[suggestion.source]})
             </span>
           </p>
         )}
+      </section>
+
+      <section>
+        <ToolCallConsole />
       </section>
 
       <div className="flex items-center justify-between">
@@ -269,11 +312,11 @@ export function ContextualTriagePanel() {
           onClick={handleCacheOffline}
           className="rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500"
         >
-          Cache record offline
+          Guardar registro offline
         </button>
         <span className="text-xs text-slate-500">
-          Offline queue: {offlineQueueSize}
-          {lastCachedAt ? ` · last cached ${new Date(lastCachedAt).toLocaleTimeString()}` : ""}
+          Cola offline: {offlineQueueSize}
+          {lastCachedAt ? ` · guardado ${new Date(lastCachedAt).toLocaleTimeString()}` : ""}
         </span>
       </div>
     </div>

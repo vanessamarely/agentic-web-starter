@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-white text-[#202124] antialiased;
+}
+
+::selection {
+  @apply bg-[#d2e3fc];
+}
+
+.codelab-prose h2 {
+  @apply mb-3 mt-1 text-xl font-medium text-[#202124];
+}
+
+.codelab-prose p {
+  @apply mb-4 max-w-[68ch] leading-relaxed text-[#3c4043];
+}
+
+.codelab-prose ul {
+  @apply mb-4 ml-5 list-disc space-y-1.5 text-[#3c4043];
+}
+
+.codelab-prose p code,
+.codelab-prose li code {
+  @apply rounded bg-[#f1f3f4] px-1.5 py-0.5 font-mono text-[13px] text-[#c5221f];
+}
+
+.codelab-prose pre code {
+  @apply bg-transparent p-0 text-inherit;
+}
+
+.codelab-prose strong {
+  @apply font-medium text-[#202124];
+}
+
+.codelab-prose a {
+  @apply text-gdev-blue underline decoration-1 underline-offset-2 hover:text-[#174ea6];
+}

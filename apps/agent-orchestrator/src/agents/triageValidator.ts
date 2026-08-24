@@ -8,6 +8,7 @@ export interface TriageValidatorOutcome {
   summary: string;
   isConsistent: boolean | null;
   recommendedPriority: PatientTriageRecord["priority"] | null;
+  toolCalls: Array<{ name: string; args: Record<string, unknown>; result: unknown }>;
 }
 
 export async function runTriageValidatorAgent(
@@ -32,5 +33,6 @@ export async function runTriageValidatorAgent(
     summary: result.finalText,
     isConsistent: validation?.isConsistent ?? null,
     recommendedPriority: validation?.recommendedPriority ?? null,
+    toolCalls: result.toolCallsExecuted,
   };
 }

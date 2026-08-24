@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Emergency Healthcare & Disaster Relief Agentic Platform - edge triage + cloud multi-agent orchestration",
   "scripts": {
-    "dev": "concurrently -n web,api -c blue,green \"pnpm --filter @agentic-web-starter/web-client dev\" \"pnpm --filter @agentic-web-starter/agent-orchestrator dev\"",
+    "dev": "concurrently -n web,api,codelab -c blue,green,magenta \"pnpm --filter @agentic-web-starter/web-client dev\" \"pnpm --filter @agentic-web-starter/agent-orchestrator dev\" \"pnpm --filter @agentic-web-starter/codelab dev\"",
     "build": "pnpm -r build",
     "lint": "eslint ."
   },

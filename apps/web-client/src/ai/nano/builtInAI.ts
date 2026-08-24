@@ -46,7 +46,26 @@ declare global {
 
 export type AIReadiness = "ready" | "downloading" | "unavailable" | "unsupported";
 
+/**
+ * Chrome's on-device Prompt API requires enabling flags/an origin trial, so
+ * it is frequently unavailable on a conference laptop or projector setup.
+ * This demo-mode switch lets a presenter force the "ready" path so the talk
+ * never depends on the venue's Chrome flags or network — every response is
+ * clearly labeled "(simulado)" in the UI so the audience knows what they're
+ * seeing when it's active.
+ */
+let demoModeEnabled = false;
+
+export function setNanoDemoMode(enabled: boolean): void {
+  demoModeEnabled = enabled;
+}
+
+export function isNanoDemoMode(): boolean {
+  return demoModeEnabled;
+}
+
 export async function getLanguageModelReadiness(): Promise<AIReadiness> {
+  if (demoModeEnabled) return "ready";
   const languageModel = window.ai?.languageModel;
   if (!languageModel) return "unsupported";
   try {
@@ -62,11 +81,43 @@ export async function getLanguageModelReadiness(): Promise<AIReadiness> {
 export interface TriageAISession {
   prompt(input: string): Promise<string>;
   destroy(): void;
+  readonly simulated: boolean;
 }
 
 const TRIAGE_SYSTEM_PROMPT = `You are an offline field-triage assistant following the START (Simple Triage And Rapid Treatment) protocol used in mass-casualty disaster response. Given a patient's vitals, respond ONLY with a compact JSON object of the shape {"priority":"IMMEDIATE"|"DELAYED"|"MINIMAL"|"EXPECTANT","rationale":"<one short clinical sentence>"}. Do not include any other text.`;
 
+function parseVitalsPromptLine(line: string): Vitals {
+  const num = (pattern: RegExp, fallback = 0) => {
+    const match = line.match(pattern);
+    return match?.[1] ? Number.parseFloat(match[1]) : fallback;
+  };
+  const consciousnessMatch = line.match(/consciousness:\s*(ALERT|VERBAL|PAIN|UNRESPONSIVE)/i);
+  return {
+    respiratoryRate: num(/respiratory rate (\d+(?:\.\d+)?)/i),
+    pulseRate: num(/pulse (\d+(?:\.\d+)?)/i),
+    capillaryRefillSeconds: num(/capillary refill (\d+(?:\.\d+)?)/i),
+    consciousness: (consciousnessMatch?.[1]?.toUpperCase() as Vitals["consciousness"]) ?? "ALERT",
+    ambulatory: /ambulatory:\s*yes/i.test(line),
+    systolicBP: line.includes("systolic BP") ? num(/systolic BP (\d+(?:\.\d+)?)/i) : undefined,
+    spo2: line.includes("SpO2") ? num(/SpO2 (\d+(?:\.\d+)?)/i) : undefined,
+  };
+}
+
+/** A fake session used only in demo mode: runs the real heuristic decision tree but speaks the same JSON protocol a real Prompt API session would. */
+function createSimulatedSession(): TriageAISession {
+  return {
+    simulated: true,
+    prompt: async (input: string) => {
+      const vitals = parseVitalsPromptLine(input);
+      const { priority, rationale } = suggestTriagePriorityHeuristic(vitals);
+      return JSON.stringify({ priority, rationale });
+    },
+    destroy: () => {},
+  };
+}
+
 export async function createTriageLanguageModelSession(): Promise<TriageAISession | null> {
+  if (demoModeEnabled) return createSimulatedSession();
   const languageModel = window.ai?.languageModel;
   if (!languageModel) return null;
   try {
@@ -78,6 +129,7 @@ export async function createTriageLanguageModelSession(): Promise<TriageAISessio
       topK: 3,
     });
     return {
+      simulated: false,
       prompt: (input: string) => session.prompt(input),
       destroy: () => session.destroy(),
     };
@@ -106,7 +158,7 @@ export async function summarizeClinicalNotes(text: string): Promise<string | nul
 export interface TriageSuggestion {
   priority: TriagePriority;
   rationale: string;
-  source: "on-device-ai" | "offline-heuristic";
+  source: "on-device-ai" | "on-device-ai-simulated" | "offline-heuristic";
 }
 
 function vitalsToPromptLine(vitals: Vitals): string {
@@ -198,7 +250,7 @@ export async function suggestTriagePriority(
     const raw = await session.prompt(vitalsToPromptLine(vitals));
     const parsed = parseModelJson(raw);
     if (!parsed) return suggestTriagePriorityHeuristic(vitals);
-    return { ...parsed, source: "on-device-ai" };
+    return { ...parsed, source: session.simulated ? "on-device-ai-simulated" : "on-device-ai" };
   } catch {
     return suggestTriagePriorityHeuristic(vitals);
   }

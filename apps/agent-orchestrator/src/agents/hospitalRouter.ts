@@ -8,6 +8,7 @@ export interface HospitalRouterOutcome {
   hospitalId: string | null;
   reason: string;
   consideredHospitals: HospitalStatus[];
+  toolCalls: Array<{ name: string; args: Record<string, unknown>; result: unknown }>;
 }
 
 export async function runHospitalRouterAgent(
@@ -33,5 +34,6 @@ export async function runHospitalRouterAgent(
     hospitalId: match && match[1] !== "none" ? (match[1] ?? null) : null,
     reason: match?.[2]?.trim() ?? result.finalText,
     consideredHospitals: capacityCall?.hospitals ?? [],
+    toolCalls: result.toolCallsExecuted,
   };
 }

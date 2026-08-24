@@ -7,13 +7,14 @@ const SYSTEM_INSTRUCTION = `You are the Supply Chain agent for a disaster-respon
 export interface SupplyChainOutcome {
   summary: string;
   allocations: Array<{ requestId: string; hospitalId: string | null; resourceType: string }>;
+  toolCalls: Array<{ name: string; args: Record<string, unknown>; result: unknown }>;
 }
 
 export async function runSupplyChainAgent(
   requests: readonly MedicalResourceRequest[],
 ): Promise<SupplyChainOutcome> {
   if (requests.length === 0) {
-    return { summary: "No pending resource requests.", allocations: [] };
+    return { summary: "No pending resource requests.", allocations: [], toolCalls: [] };
   }
 
   const userPrompt = requests
@@ -39,5 +40,6 @@ export async function runSupplyChainAgent(
       hospitalId: (call.args.hospitalId as string | undefined) ?? null,
       resourceType: (call.args.resourceType as string | undefined) ?? "",
     })),
+    toolCalls: result.toolCallsExecuted,
   };
 }
