@@ -8,6 +8,7 @@ import {
 } from "@agentic-web-starter/shared-types";
 import { runOrchestration } from "./agents/orchestrator.js";
 import { transcribeAudio } from "./services/transcription.js";
+import { generateSituationalBriefing } from "./agents/situationalBriefing.js";
 
 const OrchestrateRequestSchema = z.object({
   patient: PatientTriageRecordSchema,
@@ -53,6 +54,12 @@ app.post("/api/transcribe", (req: Request, res: Response, next: NextFunction) =>
 
   transcribeAudio(parsed.data)
     .then((transcript) => res.json({ transcript }))
+    .catch(next);
+});
+
+app.get("/api/briefing", (_req: Request, res: Response, next: NextFunction) => {
+  generateSituationalBriefing()
+    .then((briefing) => res.json(briefing))
     .catch(next);
 });
 

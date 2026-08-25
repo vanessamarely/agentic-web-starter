@@ -9,6 +9,7 @@ earthquake relief in Colombia) as the running example for three live demos:
 1. **Interactive Web Apps with Gemini Nano & WebMCP** — on-device inference in the browser.
 2. **Orchestrating Multi-Agent Workflows with Gemini Flash** — cloud function calling across specialist agents.
 3. **Local Agents with Gemma, Gemini Nano & WebMCP** — an open-weights model running fully in-browser via Google AI Edge / MediaPipe.
+4. **(Bonus) Google AI Studio vs. Gemini Enterprise Agent Platform** — the same `gemini-3.7-flash` model called two ways: an AI Studio API key (demos 1-3) versus the Agent Platform (formerly Vertex AI) authenticating as Cloud Run's own service identity, no key at all.
 
 ## Architecture
 
@@ -83,11 +84,23 @@ toggle (on by default) runs a templated fallback so the live demo never
 depends on a model download at the venue — see [Setting up the Gemma
 demo](#setting-up-the-gemma-demo-optional) below.
 
+### Demo 4 (bonus) · AI Studio vs. Agent Platform (`apps/web-client` tab "4")
+
+`GET /api/briefing` calls the same `gemini-3.7-flash` model as the rest of
+the backend, but through a second `@google/genai` client
+(`src/config/agentPlatformGenai.ts`) configured with `vertexai: true` for
+the **Gemini Enterprise Agent Platform** (Google Cloud's current name for
+what used to be Vertex AI) instead of an AI Studio API key — authenticating
+via Application Default Credentials, which on Cloud Run is the service's own
+identity. It reads every hospital's current status and asks the model for an
+executive briefing, a genuinely different task from the per-patient demos.
+
 ### Codelab (`apps/codelab`)
 
 A Google-Codelabs-styled, step-by-step walkthrough of the entire talk in
-Spanish: the Google AI ecosystem (Gemini API, Nano, Gemma, Vertex AI Model
-Garden, AI Studio, Genkit, ADK, Google AI Edge), then one module per demo
+Spanish: the Google AI ecosystem (Gemini API, Nano, Gemma, Model Garden on
+the Gemini Enterprise Agent Platform, AI Studio, Genkit, ADK, Google AI
+Edge), then one module per demo
 with the concept, the real code, and a button that opens the live demo in a
 new tab. Runs as its own app so it can be projected while `web-client` and
 `agent-orchestrator` run the actual demos.

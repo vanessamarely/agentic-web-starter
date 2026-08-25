@@ -103,11 +103,14 @@ export function VoiceNoteButton({ onTranscript }: { onTranscript: (text: string)
           type="button"
           onClick={startRecording}
           disabled={state === "transcribing"}
-          className="rounded border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700 disabled:opacity-50"
+          className="rounded border border-amber-800 bg-amber-950/60 px-3 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-900/60 disabled:opacity-50"
         >
-          {state === "transcribing" ? "Transcribiendo (Gemini Flash)…" : "🎙️ Dictar nota de voz"}
+          {state === "transcribing" ? "Transcribiendo…" : "🎙️ Dictar nota de voz"}
         </button>
       )}
+      <span className="rounded bg-amber-950 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-500">
+        ☁️ Usa la nube (Gemini Flash)
+      </span>
       {error && <span className="text-xs text-red-400">{error}</span>}
     </div>
   );

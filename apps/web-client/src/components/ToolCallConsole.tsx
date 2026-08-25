@@ -31,7 +31,7 @@ export function ToolCallConsole() {
     <div className="rounded-lg border border-slate-800 bg-black/40 p-3 font-mono text-xs">
       <div className="mb-2 flex items-center justify-between">
         <span className="font-sans text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-          WebMCP tool calls
+          Llamadas a herramientas WebMCP
         </span>
         <span className="text-slate-600">{entries.length} recientes</span>
       </div>

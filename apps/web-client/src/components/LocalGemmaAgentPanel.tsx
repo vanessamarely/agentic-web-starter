@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { TriagePriority, Vitals } from "@agentic-web-starter/shared-types";
-import { suggestTriagePriorityHeuristic } from "../ai/nano/builtInAI";
+import { PRIORITY_NEXT_ACTION, suggestTriagePriorityHeuristic } from "../ai/nano/builtInAI";
 import { extractVitalsTool, updateTriageBadgeTool } from "../mcp/webMcpTools";
 import { logToolCall } from "../mcp/toolCallLog";
 import { loadGemmaEngine, type GemmaEngine } from "../ai/gemma/mediapipeGemma";
@@ -205,6 +205,11 @@ export function LocalGemmaAgentPanel() {
             {priority ?? "…"}
           </span>
         </div>
+        {priority && (
+          <p className="mt-3 rounded border border-slate-800 bg-slate-950/60 px-3 py-2 text-sm font-medium text-slate-200">
+            👉 {PRIORITY_NEXT_ACTION[priority]}
+          </p>
+        )}
         {report && (
           <div className="mt-3 rounded border border-slate-800 bg-slate-950/60 p-3">
             <p className="text-xs uppercase tracking-wide text-slate-500">

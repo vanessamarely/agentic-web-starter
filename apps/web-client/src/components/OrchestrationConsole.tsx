@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import type {
   ConsciousnessLevel,
   MedicalResourceType,
@@ -12,6 +12,15 @@ interface ToolCallTrace {
   result: unknown;
 }
 
+interface ConsideredHospital {
+  id: string;
+  name: string;
+  traumaLevel: number;
+  capacityAvailableBeds: number;
+  icuAvailableBeds: number;
+  operational: boolean;
+}
+
 interface OrchestrationResult {
   patientId: string;
   triageValidation: {
@@ -23,16 +32,34 @@ interface OrchestrationResult {
   hospitalRouting: {
     hospitalId: string | null;
     reason: string;
-    consideredHospitals: Array<{ id: string; name: string }>;
+    consideredHospitals: ConsideredHospital[];
     toolCalls: ToolCallTrace[];
   };
   supplyChain: {
     summary: string;
-    allocations: Array<{ requestId: string; hospitalId: string | null; resourceType: string }>;
+    allocations: Array<{
+      requestId: string;
+      resourceType: string;
+      quantity: number;
+      hospitalId: string | null;
+      hospitalName: string | null;
+    }>;
+    unfulfilled: Array<{ requestId: string; resourceType: string; quantity: number }>;
     toolCalls: ToolCallTrace[];
   };
   completedAt: string;
 }
+
+const RESOURCE_LABEL: Record<string, string> = {
+  BLOOD_O_NEG: "Sangre O-",
+  IV_FLUIDS: "Suero IV",
+  ANTIBIOTICS: "Antibióticos",
+  SURGICAL_KIT: "Kit quirúrgico",
+  VENTILATOR: "Ventilador",
+  ANALGESICS: "Analgésicos",
+  SPLINTS: "Férulas",
+  OXYGEN: "Oxígeno",
+};
 
 const REGIONS = [
   { id: "eje-cafetero", label: "Eje Cafetero (Armenia, Pereira, Manizales, Calarcá)" },
@@ -48,12 +75,6 @@ const RESOURCE_TYPES: MedicalResourceType[] = [
   "ANALGESICS",
   "SPLINTS",
   "OXYGEN",
-];
-
-const AGENT_META = [
-  { key: "triageValidation" as const, name: "Triage Validator", accent: "border-l-sky-500" },
-  { key: "hospitalRouting" as const, name: "Hospital Router", accent: "border-l-amber-500" },
-  { key: "supplyChain" as const, name: "Supply Chain Agent", accent: "border-l-emerald-500" },
 ];
 
 export function OrchestrationConsole() {
@@ -130,7 +151,7 @@ export function OrchestrationConsole() {
         throw new Error("error" in body ? body.error : `HTTP ${response.status}`);
       }
       setResult(body);
-      AGENT_META.forEach((_, index) => {
+      [0, 1, 2].forEach((index) => {
         setTimeout(() => setRevealedCount((count) => Math.max(count, index + 1)), index * 350);
       });
     } catch (err) {
@@ -322,39 +343,24 @@ export function OrchestrationConsole() {
 
       {result && (
         <div className="space-y-3">
-          {AGENT_META.map((meta, index) => {
-            if (index >= revealedCount) return null;
-            const outcome = result[meta.key];
-            return (
-              <div
-                key={meta.key}
-                className={`animate-[fadeIn_0.3s_ease-out] rounded-lg border border-slate-800 border-l-4 ${meta.accent} bg-slate-900 p-4`}
-              >
-                <h3 className="text-sm font-bold uppercase tracking-wide text-slate-200">
-                  {meta.name}
-                </h3>
-                <p className="mt-1 text-sm text-slate-400">
-                  {"summary" in outcome ? outcome.summary : outcome.reason}
-                </p>
-                {outcome.toolCalls.length > 0 && (
-                  <details className="mt-2">
-                    <summary className="cursor-pointer text-xs text-slate-500">
-                      {outcome.toolCalls.length} llamada(s) a herramientas MCP
-                    </summary>
-                    <ul className="mt-1.5 space-y-1 font-mono text-xs text-slate-500">
-                      {outcome.toolCalls.map((call, callIndex) => (
-                        <li key={callIndex} className="border-l-2 border-slate-800 pl-2">
-                          <span className="text-slate-300">{call.name}</span>(
-                          {JSON.stringify(call.args)}) →{" "}
-                          <span className="text-green-500/80">{JSON.stringify(call.result)}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </details>
-                )}
-              </div>
-            );
-          })}
+          {revealedCount > 0 && (
+            <AgentCard title="Triage Validator" accent="border-l-sky-500">
+              <TriageValidationBody outcome={result.triageValidation} />
+              <ToolCallDetails toolCalls={result.triageValidation.toolCalls} />
+            </AgentCard>
+          )}
+          {revealedCount > 1 && (
+            <AgentCard title="Hospital Router" accent="border-l-amber-500">
+              <HospitalRoutingBody outcome={result.hospitalRouting} />
+              <ToolCallDetails toolCalls={result.hospitalRouting.toolCalls} />
+            </AgentCard>
+          )}
+          {revealedCount > 2 && (
+            <AgentCard title="Supply Chain Agent" accent="border-l-emerald-500">
+              <SupplyChainBody outcome={result.supplyChain} />
+              <ToolCallDetails toolCalls={result.supplyChain.toolCalls} />
+            </AgentCard>
+          )}
         </div>
       )}
     </div>
@@ -387,5 +393,133 @@ function NumberField({
         onChange={(e) => onChange(Number.parseFloat(e.target.value) || 0)}
       />
     </label>
+  );
+}
+
+function AgentCard({
+  title,
+  accent,
+  children,
+}: {
+  title: string;
+  accent: string;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className={`animate-[fadeIn_0.3s_ease-out] rounded-lg border border-slate-800 border-l-4 ${accent} bg-slate-900 p-4`}
+    >
+      <h3 className="text-sm font-bold uppercase tracking-wide text-slate-200">{title}</h3>
+      <div className="mt-2">{children}</div>
+    </div>
+  );
+}
+
+function ToolCallDetails({ toolCalls }: { toolCalls: ToolCallTrace[] }) {
+  if (toolCalls.length === 0) return null;
+  return (
+    <details className="mt-3">
+      <summary className="cursor-pointer text-xs text-slate-500">
+        Ver detalles técnicos ({toolCalls.length} llamada{toolCalls.length === 1 ? "" : "s"} a
+        herramientas MCP)
+      </summary>
+      <ul className="mt-1.5 max-w-full space-y-1 overflow-x-auto font-mono text-xs text-slate-500">
+        {toolCalls.map((call, callIndex) => (
+          <li key={callIndex} className="break-all border-l-2 border-slate-800 pl-2">
+            <span className="text-slate-300">{call.name}</span>({JSON.stringify(call.args)}) →{" "}
+            <span className="text-green-500/80">{JSON.stringify(call.result)}</span>
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
+function TriageValidationBody({ outcome }: { outcome: OrchestrationResult["triageValidation"] }) {
+  const confirmed = outcome.isConsistent === true;
+  return (
+    <div className="flex items-start gap-3">
+      <span className="text-2xl leading-none">{confirmed ? "✅" : "⚠️"}</span>
+      <div>
+        <p className="font-semibold text-slate-100">
+          {confirmed
+            ? "Prioridad confirmada"
+            : outcome.recommendedPriority
+              ? `Debería ser ${outcome.recommendedPriority}`
+              : "No se pudo validar"}
+        </p>
+        <p className="mt-0.5 text-sm text-slate-400">{outcome.summary}</p>
+      </div>
+    </div>
+  );
+}
+
+function HospitalRoutingBody({ outcome }: { outcome: OrchestrationResult["hospitalRouting"] }) {
+  const chosen = outcome.hospitalId
+    ? outcome.consideredHospitals.find((h) => h.id === outcome.hospitalId)
+    : null;
+
+  if (!chosen) {
+    return (
+      <div className="flex items-start gap-3">
+        <span className="text-2xl leading-none">🚫</span>
+        <div>
+          <p className="font-semibold text-amber-400">Sin hospital disponible</p>
+          <p className="mt-0.5 text-sm text-slate-400">{outcome.reason}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="flex items-start gap-3">
+        <span className="text-2xl leading-none">🏥</span>
+        <div>
+          <p className="text-lg font-semibold text-slate-100">{chosen.name}</p>
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[11px] text-slate-400">
+              Nivel {chosen.traumaLevel}
+            </span>
+            <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[11px] text-slate-400">
+              {chosen.capacityAvailableBeds} camas libres
+            </span>
+            <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[11px] text-slate-400">
+              {chosen.icuAvailableBeds} UCI
+            </span>
+          </div>
+        </div>
+      </div>
+      <p className="mt-2 text-sm text-slate-400">{outcome.reason}</p>
+    </div>
+  );
+}
+
+function SupplyChainBody({ outcome }: { outcome: OrchestrationResult["supplyChain"] }) {
+  if (outcome.allocations.length === 0 && outcome.unfulfilled.length === 0) {
+    return <p className="text-sm text-slate-500">No se solicitaron insumos médicos.</p>;
+  }
+  return (
+    <ul className="space-y-1.5">
+      {outcome.allocations.map((allocation) => (
+        <li key={allocation.requestId} className="flex items-center gap-2 text-sm">
+          <span className="text-green-500">✅</span>
+          <span className="text-slate-200">
+            {allocation.quantity}x {RESOURCE_LABEL[allocation.resourceType] ?? allocation.resourceType}
+          </span>
+          <span className="text-slate-600">→</span>
+          <span className="text-slate-300">{allocation.hospitalName}</span>
+        </li>
+      ))}
+      {outcome.unfulfilled.map((request) => (
+        <li key={request.requestId} className="flex items-center gap-2 text-sm">
+          <span className="text-red-500">❌</span>
+          <span className="text-slate-300">
+            {request.quantity}x {RESOURCE_LABEL[request.resourceType] ?? request.resourceType}
+          </span>
+          <span className="text-slate-500">— sin stock disponible en la región</span>
+        </li>
+      ))}
+    </ul>
   );
 }

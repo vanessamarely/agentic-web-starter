@@ -22,6 +22,7 @@ export const modules: Module[] = [
               "Demo 1 — Interactive Web Apps with Gemini Nano & WebMCP",
               "Demo 2 — Orchestrating Multi-Agent Workflows with Gemini Flash",
               "Demo 3 — Local Agents with Gemma, Gemini Nano & WebMCP",
+              "Demo 4 (bonus) — Google AI Studio vs. Gemini Enterprise Agent Platform",
             ],
           },
           {
@@ -68,7 +69,7 @@ export const modules: Module[] = [
             rows: [
               [
                 "Gemini API (Flash / Pro)",
-                "Nube (Google AI Studio / Vertex AI)",
+                "Nube (Google AI Studio)",
                 "Lógica compleja, function calling robusto, multimodal, la mayoría de tus agentes",
               ],
               [
@@ -82,7 +83,7 @@ export const modules: Module[] = [
                 "Necesitas pesos abiertos, fine-tuning, control total del runtime, o correr fuera de Chrome",
               ],
               [
-                "Vertex AI Model Garden",
+                "Model Garden (Gemini Enterprise Agent Platform)",
                 "Nube gestionada",
                 "Catálogo de +200 modelos (Gemini, Gemma, Llama, Claude, etc.) con despliegue gestionado para producción",
               ],
@@ -105,7 +106,7 @@ export const modules: Module[] = [
           {
             type: "callout",
             kind: "success",
-            text: "Regla práctica: empieza en AI Studio para prototipar, usa Gemini Flash en el backend para tus agentes, añade Gemini Nano o Gemma cuando la latencia, el costo o el offline-first importen, y gradúa a Vertex AI Model Garden cuando necesites escala de producción.",
+            text: "Regla práctica: empieza en AI Studio para prototipar, usa Gemini Flash en el backend para tus agentes, añade Gemini Nano o Gemma cuando la latencia, el costo o el offline-first importen, y gradúa a Model Garden en la Gemini Enterprise Agent Platform cuando necesites escala de producción.",
           },
         ],
       },
@@ -121,7 +122,7 @@ export const modules: Module[] = [
         blocks: [
           {
             type: "p",
-            text: "Gemini Nano vive dentro de Chrome y se expone vía la Prompt API — un global LanguageModel (no window.ai, ese namespace quedó atrás en los primeros origin trials). Está activada por defecto desde Chrome 148 en escritorio: LanguageModel.availability() te dice si el modelo está \"available\", \"downloadable\", \"downloading\" o \"unavailable\", y LanguageModel.create() abre una sesión. No hay llamada de red, no hay costo por token, y funciona sin conexión.",
+            text: "Gemini Nano vive dentro de Chrome y se expone vía la Prompt API — un global LanguageModel, activado por defecto desde Chrome 148 en escritorio. LanguageModel.availability() te dice si el modelo está \"available\", \"downloadable\", \"downloading\" o \"unavailable\", y LanguageModel.create() abre una sesión. No hay llamada de red, no hay costo por token, y funciona sin conexión.",
           },
           {
             type: "p",
@@ -240,7 +241,7 @@ export const modules: Module[] = [
         blocks: [
           {
             type: "p",
-            text: "Gemini Flash es rápido y barato — perfecto para orquestar muchas llamadas de function calling en paralelo. En vez de un único prompt gigante, dividimos el problema en agentes especializados, cada uno con su propio set de herramientas. Este proyecto usa gemini-3.7-flash, el modelo Flash recomendado actualmente (gemini-2.5-flash sigue funcionando, pero 3.7 es la versión vigente).",
+            text: "Gemini Flash es rápido y barato — perfecto para orquestar muchas llamadas de function calling en paralelo. En vez de un único prompt gigante, dividimos el problema en agentes especializados, cada uno con su propio set de herramientas. Este proyecto usa gemini-3.7-flash.",
           },
           {
             type: "p",
@@ -419,6 +420,58 @@ const text = await engine.generate(
     ],
   },
   {
+    id: "demo-4-agent-platform",
+    title: "Demo 4 (bonus) · AI Studio vs. Agent Platform",
+    steps: [
+      {
+        title: "El concepto: dos formas de llamar al mismo modelo",
+        durationMinutes: 2,
+        blocks: [
+          {
+            type: "p",
+            text: "Todas las demos anteriores usan Google AI Studio: generas una API key en aistudio.google.com y la pasas como texto plano. Es la forma más simple de empezar, y la que usa este proyecto en apps/agent-orchestrator/src/config/genai.ts.",
+          },
+          {
+            type: "p",
+            text: "La Gemini Enterprise Agent Platform (el nombre actual de lo que antes se llamaba Vertex AI) es la otra puerta de entrada al mismo modelo — pensada para producción dentro de Google Cloud. La diferencia no es el modelo, es la autenticación: en vez de una API key, usa la identidad del propio servicio (Cloud Run, en este caso). Cero secretos que rotar o filtrar.",
+          },
+          {
+            type: "code",
+            filename: "apps/agent-orchestrator/src/config/agentPlatformGenai.ts",
+            code: `// AI Studio (Demo 2):
+new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+// Gemini Enterprise Agent Platform (esta demo) — sin API key:
+new GoogleGenAI({ vertexai: true, project, location: "global" });`,
+          },
+          {
+            type: "callout",
+            kind: "warning",
+            text: "gemini-3.7-flash solo corre en la región \"global\" en la Agent Platform (sin residencia regional de datos todavía) — usar us-central1 u otra región da 404. Si copias este patrón, revisa la disponibilidad por región del modelo que necesites.",
+          },
+        ],
+      },
+      {
+        title: "Pruébalo en vivo",
+        durationMinutes: 1,
+        blocks: [
+          {
+            type: "list",
+            items: [
+              "Presiona \"Generar briefing regional\" — a diferencia de las demos 1-3 (un paciente a la vez), esta le pide a Gemini que lea el estado de TODOS los hospitales de la región y redacte un resumen ejecutivo.",
+              "Fíjate en la etiqueta \"vía Gemini Enterprise Agent Platform\" en el resultado — ese mismo texto sale de gemini-3.7-flash, sin ninguna API key involucrada.",
+            ],
+          },
+          {
+            type: "demo-link",
+            label: "Abrir Demo 4 en vivo",
+            url: `${WEB_CLIENT_URL}/#platform`,
+          },
+        ],
+      },
+    ],
+  },
+  {
     id: "cierre",
     title: "Cierre y recursos",
     steps: [
@@ -525,7 +578,7 @@ exports.disableBillingOnBudgetExceeded = async (cloudEvent) => {
                 description: "Documentación de la Gemini API, Gemma y las Prompt/Summarizer APIs de Chrome.",
               },
               {
-                label: "Vertex AI Model Garden",
+                label: "Model Garden (Gemini Enterprise Agent Platform)",
                 url: "https://cloud.google.com/model-garden",
                 description: "Catálogo de modelos gestionados para llevar tus agentes a producción.",
               },

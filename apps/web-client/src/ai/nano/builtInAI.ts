@@ -1,10 +1,8 @@
 import type { TriagePriority, Vitals } from "@agentic-web-starter/shared-types";
 
 /**
- * Ambient typings for Chrome's built-in Prompt API. The global entry point
- * is `LanguageModel` — NOT `window.ai.languageModel`. That namespaced shape
- * existed only in early origin trials and was retired before the API
- * shipped on-by-default in Chrome 148 (desktop). See
+ * Ambient typings for Chrome's built-in Prompt API: a global `LanguageModel`,
+ * on by default in Chrome 148+ (desktop). See
  * https://developer.chrome.com/docs/ai/prompt-api
  */
 type LanguageModelAvailability = "unavailable" | "downloadable" | "downloading" | "available";
@@ -96,7 +94,7 @@ export interface TriageAISession {
   readonly simulated: boolean;
 }
 
-const TRIAGE_SYSTEM_PROMPT = `You are an offline field-triage assistant following the START (Simple Triage And Rapid Treatment) protocol used in mass-casualty disaster response. Given a patient's vitals, respond ONLY with a compact JSON object of the shape {"priority":"IMMEDIATE"|"DELAYED"|"MINIMAL"|"EXPECTANT","rationale":"<one short clinical sentence>"}. Do not include any other text.`;
+const TRIAGE_SYSTEM_PROMPT = `You are an offline field-triage assistant following the START (Simple Triage And Rapid Treatment) protocol used in mass-casualty disaster response. Given a patient's vitals, respond ONLY with a compact JSON object of the shape {"priority":"IMMEDIATE"|"DELAYED"|"MINIMAL"|"EXPECTANT","rationale":"<one short clinical sentence, written in Spanish>"}. Keep the JSON keys and the priority value in English exactly as shown; only the rationale sentence should be in Spanish. Do not include any other text.`;
 
 function parseVitalsPromptLine(line: string): Vitals {
   const num = (pattern: RegExp, fallback = 0) => {
@@ -188,6 +186,14 @@ function parseModelJson(raw: string): { priority: TriagePriority; rationale: str
   }
 }
 
+/** What a responder should actually do with each START priority — the point of computing the priority at all. */
+export const PRIORITY_NEXT_ACTION: Record<TriagePriority, string> = {
+  IMMEDIATE: "Traslado inmediato. Este paciente no puede esperar.",
+  DELAYED: "Puede esperar traslado. Reevaluar cada 15 minutos.",
+  MINIMAL: "Puede caminar o esperar. Prioriza primero a los casos más graves.",
+  EXPECTANT: "Cuidado paliativo. Reasigna recursos a pacientes recuperables.",
+};
+
 /**
  * Deterministic START-protocol decision tree. Used whenever on-device AI is
  * unavailable (offline, unsupported browser, still downloading), so the
@@ -197,41 +203,41 @@ export function suggestTriagePriorityHeuristic(vitals: Vitals): TriageSuggestion
   if (vitals.consciousness === "UNRESPONSIVE" && vitals.respiratoryRate === 0) {
     return {
       priority: "EXPECTANT",
-      rationale: "No respirations after airway repositioning and unresponsive.",
+      rationale: "Sin respiraciones tras reposicionar la vía aérea, y no responde.",
       source: "offline-heuristic",
     };
   }
   if (vitals.respiratoryRate > 30 || vitals.respiratoryRate === 0) {
     return {
       priority: "IMMEDIATE",
-      rationale: "Respiratory rate outside the 0-30/min safe window.",
+      rationale: "Frecuencia respiratoria fuera del rango seguro (0-30/min).",
       source: "offline-heuristic",
     };
   }
   if (vitals.capillaryRefillSeconds > 2 || vitals.pulseRate > 120) {
     return {
       priority: "IMMEDIATE",
-      rationale: "Delayed capillary refill or tachycardia suggests poor perfusion.",
+      rationale: "Llenado capilar lento o taquicardia sugieren mala perfusión.",
       source: "offline-heuristic",
     };
   }
   if (vitals.consciousness === "PAIN" || vitals.consciousness === "UNRESPONSIVE") {
     return {
       priority: "IMMEDIATE",
-      rationale: "Unable to follow simple commands.",
+      rationale: "No puede seguir órdenes simples.",
       source: "offline-heuristic",
     };
   }
   if (!vitals.ambulatory) {
     return {
       priority: "DELAYED",
-      rationale: "Cannot walk but vitals are within safe ranges.",
+      rationale: "No puede caminar, pero los vitales están en rangos seguros.",
       source: "offline-heuristic",
     };
   }
   return {
     priority: "MINIMAL",
-    rationale: "Ambulatory with normal perfusion, respiration, and mental status.",
+    rationale: "Ambulatorio, con perfusión, respiración y estado mental normales.",
     source: "offline-heuristic",
   };
 }
@@ -265,7 +271,7 @@ export interface TriageImageSession {
 }
 
 const IMAGE_ANALYSIS_PROMPT =
-  "You are a field triage assistant. Looking only at what is visibly observable in this photo from an emergency scene, describe in one short clinical sentence any injury severity or hazards relevant to triage. Do not diagnose conditions you cannot see.";
+  "Eres un asistente de triage de campo. Observando solo lo visible en esta foto de una escena de emergencia, describe en una frase clínica corta y en español la severidad de la lesión o los peligros relevantes para el triage. No diagnostiques condiciones que no puedas ver.";
 
 export type ImageAnalysisReadiness = "ready" | "unavailable";
 

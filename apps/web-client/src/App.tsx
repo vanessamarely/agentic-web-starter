@@ -2,20 +2,23 @@ import { useEffect, useState } from "react";
 import { ContextualTriagePanel } from "./components/ContextualTriagePanel";
 import { OrchestrationConsole } from "./components/OrchestrationConsole";
 import { LocalGemmaAgentPanel } from "./components/LocalGemmaAgentPanel";
+import { AgentPlatformBriefingPanel } from "./components/AgentPlatformBriefingPanel";
 import { registerWebMcpTools } from "./mcp/webMcpTools";
 
-type TabId = "nano" | "flash" | "gemma";
+type TabId = "nano" | "flash" | "gemma" | "platform";
 
 const TABS: Array<{ id: TabId; label: string; sublabel: string }> = [
   { id: "nano", label: "1 · Gemini Nano + WebMCP", sublabel: "Edge / navegador" },
   { id: "flash", label: "2 · Gemini Flash multi-agente", sublabel: "Cloud / orquestación" },
   { id: "gemma", label: "3 · Gemma local + WebMCP", sublabel: "Edge / modelo abierto" },
+  { id: "platform", label: "4 · Agent Platform", sublabel: "Cloud / Model Garden" },
 ];
 
+const VALID_TABS: TabId[] = ["nano", "flash", "gemma", "platform"];
+
 function tabFromHash(): TabId {
-  const hash = window.location.hash.replace("#", "");
-  if (hash === "flash" || hash === "gemma" || hash === "nano") return hash;
-  return "nano";
+  const hash = window.location.hash.replace("#", "") as TabId;
+  return VALID_TABS.includes(hash) ? hash : "nano";
 }
 
 export default function App() {
@@ -60,6 +63,7 @@ export default function App() {
       {activeTab === "nano" && <ContextualTriagePanel />}
       {activeTab === "flash" && <OrchestrationConsole />}
       {activeTab === "gemma" && <LocalGemmaAgentPanel />}
+      {activeTab === "platform" && <AgentPlatformBriefingPanel />}
     </div>
   );
 }

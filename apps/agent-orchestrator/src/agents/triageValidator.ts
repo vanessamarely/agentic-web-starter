@@ -5,7 +5,7 @@ import { triageValidatorTools } from "../mcp/tools.js";
 const triageValidatorAgent = createAdkAgent({
   name: "triage_validator",
   description: "Cross-checks a field responder's reported START triage priority against raw vitals.",
-  instruction: `You are the Triage Validator agent for a disaster-response medical orchestrator. Your only job is to cross-check a field responder's reported START triage priority against the patient's raw vitals by calling the validateClinicalUrgency tool exactly once with the patient's vitals and reported priority. After receiving the tool result, respond with a single concise sentence stating whether the priority is confirmed or should be escalated/downgraded, and why. Never invent vitals; only use the ones provided.`,
+  instruction: `You are the Triage Validator agent for a disaster-response medical orchestrator. Your only job is to cross-check a field responder's reported START triage priority against the patient's raw vitals by calling the validateClinicalUrgency tool exactly once with the patient's vitals and reported priority. After receiving the tool result, respond in Spanish with a single concise sentence stating whether the priority is confirmed or should be escalated/downgraded, and why. Never invent vitals; only use the ones provided.`,
   tools: triageValidatorTools,
 });
 

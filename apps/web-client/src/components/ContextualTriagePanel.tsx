@@ -10,6 +10,7 @@ import {
   createTriageLanguageModelSession,
   getLanguageModelReadiness,
   isNanoDemoMode,
+  PRIORITY_NEXT_ACTION,
   setNanoDemoMode,
   suggestTriagePriority,
   type AIReadiness,
@@ -359,13 +360,18 @@ export function ContextualTriagePanel() {
 
       <section className="space-y-3 rounded-lg border border-slate-800 bg-slate-900 p-4">
         <div>
-          <label className="block text-sm font-medium text-slate-300" htmlFor="scene-photo-input">
-            📷 Foto de la escena o la lesión (opcional)
-          </label>
+          <div className="flex items-center gap-2">
+            <label className="block text-sm font-medium text-slate-300" htmlFor="scene-photo-input">
+              📷 Foto de la escena o la lesión (opcional)
+            </label>
+            <span className="rounded bg-emerald-950 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-500">
+              🔒 On-device (gratis)
+            </span>
+          </div>
           <p className="mt-0.5 text-[11px] text-slate-500">
-            Se analiza on-device con Gemini Nano (entrada de imagen multimodal) — la foto nunca
-            sale del navegador. Es contexto adicional, no reemplaza los vitales en la decisión de
-            prioridad.
+            Se analiza con Gemini Nano dentro de este navegador (entrada de imagen multimodal) —
+            la foto nunca sale del dispositivo, sin costo. Es contexto adicional, no reemplaza los
+            vitales en la decisión de prioridad.
           </p>
         </div>
         <input
@@ -418,12 +424,17 @@ export function ContextualTriagePanel() {
           </span>
         </div>
         {suggestion && (
-          <p className="mt-2 text-sm text-slate-400">
-            {suggestion.rationale}{" "}
-            <span className="text-xs uppercase tracking-wide text-slate-600">
-              ({SOURCE_LABEL[suggestion.source]})
-            </span>
-          </p>
+          <>
+            <p className="mt-3 rounded border border-slate-800 bg-slate-950/60 px-3 py-2 text-sm font-medium text-slate-200">
+              👉 {PRIORITY_NEXT_ACTION[suggestion.priority]}
+            </p>
+            <p className="mt-2 text-sm text-slate-400">
+              {suggestion.rationale}{" "}
+              <span className="text-xs uppercase tracking-wide text-slate-600">
+                ({SOURCE_LABEL[suggestion.source]})
+              </span>
+            </p>
+          </>
         )}
       </section>
 
