@@ -27,6 +27,8 @@ import {
 import { logToolCall } from "../mcp/toolCallLog";
 import { ToolCallConsole } from "./ToolCallConsole";
 import { VoiceNoteButton } from "./VoiceNoteButton";
+import { AiModeToggle, type AiMode } from "./AiModeToggle";
+import { InfoTooltip } from "./InfoTooltip";
 
 const DEFAULT_VITALS: Vitals = {
   respiratoryRate: 16,
@@ -58,6 +60,17 @@ const SOURCE_LABEL: Record<TriageSuggestion["source"], string> = {
   "offline-heuristic": "heurística offline",
 };
 
+const PRIORITY_EXPLANATION: Record<TriagePriority, string> = {
+  IMMEDIATE:
+    "Rojo. El paciente necesita atención inmediata: no respira con normalidad, no tiene buena circulación, o no responde/está muy alterado.",
+  DELAYED:
+    "Amarillo. Tiene lesiones que requieren atención médica, pero puede esperar con seguridad mientras se atiende a los pacientes rojos.",
+  MINIMAL:
+    "Verde. Puede caminar y sus lesiones son leves — el clásico \"herido ambulatorio\". Se atiende de último.",
+  EXPECTANT:
+    "Gris/negro. Lesiones tan graves que sobrevivir es muy improbable con los recursos disponibles en el momento; se prioriza el confort.",
+};
+
 const BADGE_ELEMENT_ID = "triage-priority-badge";
 const DEBOUNCE_MS = 400;
 
@@ -78,6 +91,9 @@ export function ContextualTriagePanel() {
   );
   const [imageAnalyzing, setImageAnalyzing] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
+  const [voiceMode, setVoiceMode] = useState<AiMode>("ai-studio");
+  const [showReport, setShowReport] = useState(false);
+  const [reportCopied, setReportCopied] = useState(false);
 
   const sessionRef = useRef<TriageAISession | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -217,6 +233,42 @@ export function ContextualTriagePanel() {
     [suggestion],
   );
 
+  const reportText = useMemo(() => {
+    if (!suggestion) return "";
+    const consciousnessLabel: Record<ConsciousnessLevel, string> = {
+      ALERT: "Alerta",
+      VERBAL: "Responde a la voz",
+      PAIN: "Responde al dolor",
+      UNRESPONSIVE: "No responde",
+    };
+    return [
+      `REPORTE DE TRASPASO — ${patientLabel}`,
+      `Generado ${new Date().toLocaleString()}`,
+      "",
+      `Prioridad: ${PRIORITY_STYLES[suggestion.priority].label}`,
+      `Acción recomendada: ${PRIORITY_NEXT_ACTION[suggestion.priority]}`,
+      `Motivo: ${suggestion.rationale}`,
+      "",
+      "Vitales:",
+      `- Frec. respiratoria: ${vitals.respiratoryRate}/min`,
+      `- Pulso: ${vitals.pulseRate}/min`,
+      `- Llenado capilar: ${vitals.capillaryRefillSeconds}s`,
+      `- SpO2: ${vitals.spo2 ?? "—"}%`,
+      `- Presión sistólica: ${vitals.systolicBP ?? "—"}`,
+      `- Consciencia: ${consciousnessLabel[vitals.consciousness]}`,
+      `- Ambulatorio: ${vitals.ambulatory ? "Sí" : "No"}`,
+      injuries ? `Lesiones: ${injuries}` : "",
+    ]
+      .filter((line) => line !== "")
+      .join("\n");
+  }, [injuries, patientLabel, suggestion, vitals]);
+
+  const handleCopyReport = useCallback(() => {
+    void navigator.clipboard.writeText(reportText);
+    setReportCopied(true);
+    setTimeout(() => setReportCopied(false), 1500);
+  }, [reportText]);
+
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-6">
       <header className="flex items-center justify-between">
@@ -278,11 +330,17 @@ export function ContextualTriagePanel() {
           <label className="block text-sm font-medium text-slate-300" htmlFor="field-notes-input">
             Notas de campo (los vitales se extraen automáticamente al escribir)
           </label>
-          <VoiceNoteButton onTranscript={handleRawNotesChange} />
+          <div className="flex items-center gap-2">
+            <AiModeToggle mode={voiceMode} onChange={setVoiceMode} />
+            <VoiceNoteButton onTranscript={handleRawNotesChange} mode={voiceMode} />
+          </div>
         </div>
         <p className="-mt-2 text-[11px] text-slate-500">
           El dictado transcribe con Gemini Flash en la nube (audio nativo, sin modelo de
-          voz-a-texto aparte); la extracción de vitales y la prioridad siguen corriendo aquí en el
+          voz-a-texto aparte) — elige si la llamada sale por tu API key de{" "}
+          <strong className="text-slate-400">Google AI Studio</strong> o por la{" "}
+          <strong className="text-slate-400">Gemini Enterprise Agent Platform</strong> (créditos de
+          GCP, sin key); la extracción de vitales y la prioridad siguen corriendo aquí en el
           navegador.
         </p>
         <div>
@@ -301,30 +359,61 @@ export function ContextualTriagePanel() {
             label="Frec. respiratoria"
             value={vitals.respiratoryRate}
             onChange={(v) => updateVital("respiratoryRate", v)}
+            tooltip={{
+              term: "Frecuencia respiratoria",
+              explanation:
+                "Respiraciones por minuto. Normal en un adulto: 12–20. Por debajo de 10 o por encima de 30 es una señal de alerta.",
+            }}
           />
           <NumberField
             label="Pulso"
             value={vitals.pulseRate}
             onChange={(v) => updateVital("pulseRate", v)}
+            tooltip={{
+              term: "Pulso (frecuencia cardíaca)",
+              explanation:
+                "Latidos por minuto. Normal en un adulto en reposo: 60–100. Un pulso muy alto puede indicar shock o mala perfusión.",
+            }}
           />
           <NumberField
             label="Llenado capilar (s)"
             value={vitals.capillaryRefillSeconds}
             step={0.1}
             onChange={(v) => updateVital("capillaryRefillSeconds", v)}
+            tooltip={{
+              term: "Llenado capilar",
+              explanation:
+                "Presiona una uña o la piel 5 segundos y suelta: cuenta cuánto tarda en recuperar su color normal. Menos de 2 segundos es normal; más de 2 sugiere mala circulación.",
+            }}
           />
           <NumberField
             label="SpO2 (%)"
             value={vitals.spo2 ?? 0}
             onChange={(v) => updateVital("spo2", v)}
+            tooltip={{
+              term: "SpO2 (saturación de oxígeno)",
+              explanation:
+                "Porcentaje de oxígeno en la sangre, medido con un oxímetro de pulso. Normal: 95–100%. Por debajo de 90% es preocupante.",
+            }}
           />
           <NumberField
             label="Presión sistólica"
             value={vitals.systolicBP ?? 0}
             onChange={(v) => updateVital("systolicBP", v)}
+            tooltip={{
+              term: "Presión sistólica",
+              explanation:
+                "El número más alto de la presión arterial (ej. el \"120\" en \"120/80\"). Normal en un adulto: 90–120 mmHg. Por debajo de 90 puede indicar shock.",
+            }}
           />
           <label className="block text-sm font-medium text-slate-300">
             Consciencia
+            <InfoTooltip term="Escala AVPU">
+              Escala rápida para medir el nivel de consciencia: <strong>A</strong>lerta (responde
+              normal), <strong>V</strong>erbal (responde solo si le hablas), <strong>P</strong>ain/dolor
+              (responde solo a estímulo doloroso), <strong>U</strong>nresponsive/no responde (no
+              reacciona a nada).
+            </InfoTooltip>
             <select
               className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100"
               value={vitals.consciousness}
@@ -345,6 +434,11 @@ export function ContextualTriagePanel() {
             onChange={(e) => updateVital("ambulatory", e.target.checked)}
           />
           Ambulatorio (puede caminar)
+          <InfoTooltip term="Ambulatorio">
+            Significa que el paciente puede levantarse y caminar por su cuenta. En el protocolo
+            START, quienes pueden caminar casi siempre se clasifican como prioridad más baja
+            (MINIMAL), porque sus lesiones suelen ser menos urgentes.
+          </InfoTooltip>
         </label>
 
         <label className="block text-sm font-medium text-slate-300">
@@ -412,7 +506,14 @@ export function ContextualTriagePanel() {
 
       <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-slate-300">Prioridad sugerida</span>
+          <span className="flex items-center text-sm font-medium text-slate-300">
+            Prioridad sugerida
+            <InfoTooltip term="Protocolo START">
+              START (Simple Triage And Rapid Treatment) es el protocolo estándar para clasificar
+              rápidamente a muchos pacientes en una emergencia. Clasifica en 4 niveles según qué
+              tan urgente es tratarlos: IMMEDIATE, DELAYED, MINIMAL, EXPECTANT.
+            </InfoTooltip>
+          </span>
           <span
             id={BADGE_ELEMENT_ID}
             data-priority={suggestion?.priority ?? ""}
@@ -425,6 +526,9 @@ export function ContextualTriagePanel() {
         </div>
         {suggestion && (
           <>
+            <p className="mt-2 flex items-start gap-1 text-xs text-slate-500">
+              {PRIORITY_EXPLANATION[suggestion.priority]}
+            </p>
             <p className="mt-3 rounded border border-slate-800 bg-slate-950/60 px-3 py-2 text-sm font-medium text-slate-200">
               👉 {PRIORITY_NEXT_ACTION[suggestion.priority]}
             </p>
@@ -434,6 +538,34 @@ export function ContextualTriagePanel() {
                 ({SOURCE_LABEL[suggestion.source]})
               </span>
             </p>
+
+            <button
+              type="button"
+              onClick={() => setShowReport((v) => !v)}
+              className="mt-3 rounded border border-sky-800 bg-sky-950/60 px-3 py-1.5 text-xs font-semibold text-sky-200 hover:bg-sky-900/60"
+            >
+              📋 {showReport ? "Ocultar reporte de acción" : "Generar reporte de acción"}
+            </button>
+
+            {showReport && (
+              <div className="mt-3 rounded border border-slate-800 bg-slate-950/60 p-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Reporte de traspaso
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleCopyReport}
+                    className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-[11px] font-medium text-slate-300 hover:bg-slate-800"
+                  >
+                    {reportCopied ? "¡Copiado!" : "Copiar"}
+                  </button>
+                </div>
+                <pre className="mt-2 whitespace-pre-wrap font-mono text-xs text-slate-300">
+                  {reportText}
+                </pre>
+              </div>
+            )}
           </>
         )}
       </section>
@@ -472,15 +604,18 @@ function NumberField({
   value,
   onChange,
   step = 1,
+  tooltip,
 }: {
   label: string;
   value: number;
   onChange: (value: number) => void;
   step?: number;
+  tooltip?: { term: string; explanation: string };
 }) {
   return (
     <label className="block text-sm font-medium text-slate-300">
       {label}
+      {tooltip && <InfoTooltip term={tooltip.term}>{tooltip.explanation}</InfoTooltip>}
       <input
         type="number"
         step={step}

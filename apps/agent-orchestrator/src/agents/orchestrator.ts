@@ -2,15 +2,18 @@ import type { MedicalResourceRequest, PatientTriageRecord } from "@agentic-web-s
 import { runTriageValidatorAgent, type TriageValidatorOutcome } from "./triageValidator.js";
 import { runHospitalRouterAgent, type HospitalRouterOutcome } from "./hospitalRouter.js";
 import { runSupplyChainAgent, type SupplyChainOutcome } from "./supplyChainAgent.js";
+import type { AiMode } from "./adkRuntime.js";
 
 export interface OrchestrationRequest {
   patient: PatientTriageRecord;
   regionId: string;
   resourceRequests?: MedicalResourceRequest[];
+  mode?: AiMode;
 }
 
 export interface OrchestrationResult {
   patientId: string;
+  mode: AiMode;
   triageValidation: TriageValidatorOutcome;
   hospitalRouting: HospitalRouterOutcome;
   supplyChain: SupplyChainOutcome;
@@ -28,16 +31,17 @@ export interface OrchestrationResult {
 export async function runOrchestration(
   request: OrchestrationRequest,
 ): Promise<OrchestrationResult> {
-  const { patient, regionId, resourceRequests = [] } = request;
+  const { patient, regionId, resourceRequests = [], mode = "ai-studio" } = request;
 
   const [triageValidation, hospitalRouting, supplyChain] = await Promise.all([
-    runTriageValidatorAgent(patient),
-    runHospitalRouterAgent(patient, regionId),
-    runSupplyChainAgent(resourceRequests),
+    runTriageValidatorAgent(patient, mode),
+    runHospitalRouterAgent(patient, regionId, mode),
+    runSupplyChainAgent(resourceRequests, mode),
   ]);
 
   return {
     patientId: patient.id,
+    mode,
     triageValidation,
     hospitalRouting,
     supplyChain,

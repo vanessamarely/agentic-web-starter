@@ -1,9 +1,9 @@
 import type { MedicalResourceRequest } from "@agentic-web-starter/shared-types";
-import { createAdkAgent, runAdkAgentTurn } from "./adkRuntime.js";
+import { createDualModeAdkAgent, runAdkAgentTurn, type AiMode } from "./adkRuntime.js";
 import { supplyChainTools } from "../mcp/tools.js";
 import { getHospitalById } from "../data/hospitals.js";
 
-const supplyChainAgent = createAdkAgent({
+const getSupplyChainAgent = createDualModeAdkAgent({
   name: "supply_chain_agent",
   description: "Matches pending medical resource requests to regional hospital stock and commits allocations.",
   instruction: `You are the Supply Chain agent for a disaster-response medical orchestrator. For each pending medical resource request, call queryEmergencySupply to find hospitals in the request's region that can fulfil the requested quantity, then call allocateSupply exactly once against the best match (prefer the hospital with the most available stock, breaking ties by whichever you queried first) to commit the allocation, always passing the original request's id as requestId. If no hospital can fulfil a request, do not call allocateSupply for it. After handling every request, respond in Spanish with one short line per request in the form "REQUEST <id>: <ALLOCATED to hospital <hospitalId>|UNFULFILLED> - <one short reason in Spanish>".`,
@@ -25,6 +25,7 @@ export interface SupplyChainOutcome {
 
 export async function runSupplyChainAgent(
   requests: readonly MedicalResourceRequest[],
+  mode: AiMode = "ai-studio",
 ): Promise<SupplyChainOutcome> {
   if (requests.length === 0) {
     return { summary: "No pending resource requests.", allocations: [], unfulfilled: [], toolCalls: [] };
@@ -37,7 +38,7 @@ export async function runSupplyChainAgent(
     )
     .join("\n");
 
-  const result = await runAdkAgentTurn(supplyChainAgent, userPrompt);
+  const result = await runAdkAgentTurn(getSupplyChainAgent(mode), userPrompt);
 
   const allocationCalls = result.toolCallsExecuted.filter((call) => call.name === "allocateSupply");
   const allocations = allocationCalls.map((call) => {

@@ -23,12 +23,19 @@ export const modules: Module[] = [
               "Demo 2 — Orchestrating Multi-Agent Workflows with Gemini Flash",
               "Demo 3 — Local Agents with Gemma, Gemini Nano & WebMCP",
               "Demo 4 (bonus) — Google AI Studio vs. Gemini Enterprise Agent Platform",
+              "Demo 5 (extra) — Planificador de viajes multi-agente con ADK",
+              "Demo 6 (extra) — Panel de contexto médico con WebMCP",
             ],
           },
           {
             type: "callout",
             kind: "info",
             text: "El caso de uso: una plataforma de triage y respuesta a emergencias inspirada en la respuesta a terremotos en Colombia. Sirve como hilo conductor, pero los patrones que vas a ver aplican a cualquier dominio.",
+          },
+          {
+            type: "callout",
+            kind: "warning",
+            text: "Si en tu evento solo tienes créditos de Google Cloud (no de Google AI Studio): las Demos 1, 2 y 5 tienen un selector \"Google AI Studio / Agent Platform\" junto al botón de ejecutar — cámbialo a Agent Platform y todo corre igual, pero autenticado con las credenciales de tu proyecto de GCP en vez de una API key.",
           },
           {
             type: "p",
@@ -43,9 +50,193 @@ export const modules: Module[] = [
             ],
           },
           {
+            type: "callout",
+            kind: "success",
+            text: "¿Prefieres ver la charla completa en formato de diapositivas antes de entrar al paso a paso? Ábrela en otra pestaña y vuelve aquí cuando quieras — el codelab sigue exactamente en este punto.",
+          },
+          {
+            type: "demo-link",
+            label: "Opción A · Ver el slide deck de la charla",
+            url: "./slides.html",
+            note: "Se abre en una pestaña nueva. Úsalo con las flechas ← → o deslizando en móvil.",
+          },
+          {
+            type: "p",
+            text: "Opción B: continúa leyendo — el resto de este codelab es el mismo contenido en formato paso a paso, con el código real y links a las demos en vivo.",
+          },
+          {
             type: "demo-link",
             label: "Ver el repositorio completo",
             url: REPO_URL,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "requisitos",
+    title: "Antes de empezar: consigue acceso a Gemini",
+    steps: [
+      {
+        title: "¿Cuál camino elijo?",
+        durationMinutes: 2,
+        blocks: [
+          {
+            type: "p",
+            text: "Todas las demos de esta charla pueden correr de dos formas: con una API key de Google AI Studio, o con la Gemini Enterprise Agent Platform (Google Cloud). Ambas llaman al mismo modelo — la diferencia es solo cómo te autenticas. No necesitas los dos: elige el que aplique a tu situación.",
+          },
+          {
+            type: "table",
+            headers: ["", "Google AI Studio", "Gemini Enterprise Agent Platform"],
+            rows: [
+              ["¿Qué necesitas?", "Una cuenta de Google", "Un proyecto de Google Cloud con facturación"],
+              ["¿Pide tarjeta de crédito?", "No, para el nivel gratuito", "Sí, para habilitar la facturación del proyecto (aunque uses créditos gratis)"],
+              ["¿Cuánto tarda?", "Unos 5 minutos", "20–30 minutos la primera vez"],
+              ["Úsalo si...", "Quieres probar rápido, o vas a usar tu propia cuenta/créditos", "Prefieres autenticación sin API key, o vas a llevar esto a producción"],
+            ],
+          },
+          {
+            type: "callout",
+            kind: "info",
+            text: "Si no sabes cuál elegir: empieza por el Camino A (Google AI Studio). Es más simple, y puedes cambiar al Camino B más adelante sin tocar el código — solo cambias el selector \"Google AI Studio / Agent Platform\" que ya trae la app.",
+          },
+        ],
+      },
+      {
+        title: "Camino A · Google AI Studio, paso a paso",
+        durationMinutes: 5,
+        blocks: [
+          {
+            type: "p",
+            text: "Pensado para alguien que nunca ha usado ninguna herramienta de Google Cloud ni de IA generativa.",
+          },
+          {
+            type: "list",
+            items: [
+              "1. Si no tienes una cuenta de Google, créala en accounts.google.com/signup (es gratis y toma 2 minutos).",
+              "2. Entra a aistudio.google.com con esa cuenta y acepta los términos de servicio si te los pide.",
+              "3. En el menú lateral, haz clic en \"Get API key\" (Obtener clave de API).",
+              "4. Haz clic en \"Create API key\" (Crear clave de API). AI Studio crea automáticamente un proyecto de Google Cloud detrás de escena para asociarla — no tienes que configurar nada de Cloud tú mismo.",
+              "5. Copia la clave que aparece (empieza con \"AIza...\"). Guárdala en un lugar seguro: no la compartas ni la subas a un repositorio público.",
+              "6. En este proyecto, copia apps/agent-orchestrator/.env.example a apps/agent-orchestrator/.env y pega tu clave en GEMINI_API_KEY=.",
+              "7. (Opcional) La Gemini API tiene un nivel gratuito con límite de solicitudes por minuto. Si lo superas, en AI Studio → \"Plan and billing\" puedes vincular una cuenta de facturación de Google Cloud para pasar al nivel de pago (pagas solo por lo que uses, sin costo fijo).",
+            ],
+          },
+          {
+            type: "callout",
+            kind: "success",
+            text: "Con esto ya puedes correr todas las demos en modo \"Google AI Studio\" — que es el modo por defecto de esta app.",
+          },
+        ],
+      },
+      {
+        title: "Camino B · Gemini Enterprise Agent Platform, paso a paso",
+        durationMinutes: 8,
+        blocks: [
+          {
+            type: "p",
+            text: "Sigue esta ruta si prefieres el patrón de autenticación que usan las demos 4, 5 y 2 en modo \"Agent Platform\", o si vas a llevar esto a producción. Al final hay dos formas de autenticarte — elige la que prefieras.",
+          },
+          {
+            type: "list",
+            items: [
+              "1. Entra a console.cloud.google.com con tu cuenta de Google. Si es la primera vez, acepta los términos de Google Cloud.",
+              "2. Si te dieron un código de créditos, canjéalo ANTES de crear el proyecto en console.cloud.google.com/billing/redeem — así el proyecto nuevo queda ligado automáticamente a esos créditos.",
+              "3. Crea un proyecto nuevo: arriba a la izquierda, haz clic en el selector de proyecto → \"Proyecto nuevo\" → dale un nombre (ej. mi-charla-gemini) → \"Crear\". Anota el ID del proyecto que se genera, lo necesitarás varias veces.",
+              "4. Habilita la facturación del proyecto: menú ☰ → \"Facturación\" → vincula la cuenta de facturación con tus créditos (o crea una con tarjeta, si vas a pagar tú — dentro del nivel gratuito o de los créditos no se cobra nada).",
+              "5. Habilita la API: en el buscador de la consola escribe \"Agent Platform API\" y haz clic en \"Habilitar\".",
+              "6. En apps/agent-orchestrator/.env agrega (ya están comentadas en .env.example como referencia — solo descoméntalas y pon tu proyecto): GOOGLE_CLOUD_PROJECT=tu-proyecto-id y GOOGLE_CLOUD_LOCATION=global.",
+            ],
+          },
+          {
+            type: "callout",
+            kind: "info",
+            text: "Con esos 6 pasos, tu proyecto ya está listo. Ahora falta autenticar tus llamadas — elige UNA de las siguientes dos opciones, no ambas.",
+          },
+          {
+            type: "p",
+            text: "Opción 1 · API key (no necesitas instalar nada más)",
+          },
+          {
+            type: "list",
+            items: [
+              "a. En la consola, ve a \"APIs y servicios\" → \"Credenciales\" → \"Crear credenciales\" → \"Clave de API\".",
+              "b. (Recomendado) Restringe la key: en \"Restricciones de la API\", elige \"Restringir clave\" y selecciona \"Agent Platform API\" — así esa key solo sirve para esto.",
+              "c. Copia la key generada y agrégala a apps/agent-orchestrator/.env como AGENT_PLATFORM_API_KEY=tu-key (ya está comentada en .env.example).",
+            ],
+          },
+          {
+            type: "callout",
+            kind: "warning",
+            text: "Esta key es distinta de tu GEMINI_API_KEY de Google AI Studio y no sirve en su lugar — está restringida a la Agent Platform API, así que una llamada en modo \"Google AI Studio\" con ella falla con PERMISSION_DENIED. Cada una vive en su propia variable de entorno y las usa un código distinto: nunca se mezclan.",
+          },
+          {
+            type: "p",
+            text: "Opción 2 · gcloud + credenciales de aplicación (sin ninguna key)",
+          },
+          {
+            type: "list",
+            items: [
+              "a. Instala Google Cloud CLI (gcloud) en tu computador siguiendo cloud.google.com/sdk/docs/install — hay instalador para Mac, Windows y Linux.",
+              "b. En una terminal, ejecuta: gcloud auth login (inicia sesión con tu cuenta de Google) y luego gcloud config set project TU_PROYECTO_ID.",
+              "c. Genera credenciales de aplicación (ADC): gcloud auth application-default login.",
+              "d. Dale a tu cuenta el rol necesario: en la consola, ve a \"IAM y administración\" → \"Conceder acceso\" → tu correo → rol \"Agent Platform User\" (roles/aiplatform.user).",
+            ],
+          },
+          {
+            type: "callout",
+            kind: "warning",
+            text: "Si vas a desplegar el backend en Cloud Run (como esta demo), no necesitas hacer la Opción 2 en tu máquina — Cloud Run se autentica con la identidad de su propia cuenta de servicio. Solo asegúrate de darle a esa cuenta de servicio el mismo rol \"Agent Platform User\", como se explica en DEPLOYMENT.md.",
+          },
+          {
+            type: "p",
+            text: "No confíes a ciegas en que estos pasos quedaron bien hechos — verifícalo tú mismo:",
+          },
+          {
+            type: "code",
+            filename: "Verificación — corre esto en tu terminal",
+            code: `# Si elegiste la Opción 1 (API key):
+grep AGENT_PLATFORM_API_KEY apps/agent-orchestrator/.env
+# Debe mostrar tu key, no la línea comentada de .env.example
+
+# Si elegiste la Opción 2 (gcloud + ADC):
+
+# 1. ¿Tu CLI está logueada?
+gcloud auth list
+# Debe mostrar tu correo con un * al lado (cuenta activa)
+
+# 2. ¿Existen credenciales de aplicación (ADC)?
+ls ~/.config/gcloud/application_default_credentials.json
+# Si dice "No such file or directory", falta el paso c (gcloud auth application-default login)
+
+# 3. ¿Tu cuenta tiene el rol correcto en el proyecto?
+gcloud projects get-iam-policy TU_PROYECTO_ID \\
+  --flatten="bindings[].members" \\
+  --filter="bindings.members:tu-correo@gmail.com" \\
+  --format="table(bindings.role)"
+# Debe listar roles/aiplatform.user (o roles/owner, que ya lo incluye)`,
+          },
+          {
+            type: "callout",
+            kind: "success",
+            text: "Con cualquiera de las dos opciones lista, ya puedes cambiar el selector de cualquier demo a \"Agent Platform\" y correrá autenticándose con tu proyecto de Google Cloud.",
+          },
+        ],
+      },
+      {
+        title: "Protege tu cuenta de un gasto sorpresa",
+        durationMinutes: 2,
+        blocks: [
+          {
+            type: "p",
+            text: "Sin importar el camino que elijas, es buena práctica poner una red de seguridad antes de experimentar con una API de pago.",
+          },
+          {
+            type: "list",
+            items: [
+              "En Google Cloud Console → \"Facturación\" → \"Presupuestos y alertas\", crea un presupuesto pequeño (ej. $1 o $5) con alertas por correo al 50% y al 100%.",
+              "Esto no detiene el gasto por sí solo — solo te avisa. Más adelante, en la sección \"Cómo blindamos el costo en producción\" de este codelab, verás cómo convertir esa alerta en un corte automático real.",
+            ],
           },
         ],
       },
@@ -219,6 +410,7 @@ export const modules: Module[] = [
               "Escribe en \"Notas de campo\": RR 34, HR 128, cap refill 3s, unresponsive, not ambulatory",
               "Observa cómo la prioridad cambia a IMMEDIATE en tiempo real, sin botones — y mira la consola WebMCP debajo para ver extractVitals y updateTriageBadge disparándose.",
               "Prueba también \"🎙️ Dictar nota de voz\": graba las mismas notas habladas — Gemini Flash las transcribe en la nube (audio nativo, sin modelo de voz-a-texto aparte) y el texto entra al mismo pipeline de extracción.",
+              "Junto al botón de dictado hay un selector Google AI Studio / Agent Platform: la transcripción corre exactamente igual por cualquiera de los dos, solo cambia cómo se autentica la llamada.",
             ],
           },
           {
@@ -309,6 +501,7 @@ for await (const event of runner.runEphemeral({
               "Presiona \"Ejecutar orquestación multi-agente\".",
               "Observa las 3 tarjetas de agentes aparecer en secuencia, cada una con su propio trace de llamadas a herramientas MCP.",
               "Truco para la audiencia: cambia la región a \"Tolima\" (el hospital ahí está fuera de servicio) y muestra cómo el Hospital Router maneja el caso sin capacidad disponible.",
+              "El selector Google AI Studio / Agent Platform sobre el botón de ejecutar cambia cómo se autentican los 3 agentes ADK — mismo código, mismo modelo, credenciales distintas. Útil si tu evento solo da créditos de GCP.",
             ],
           },
           {
@@ -449,6 +642,18 @@ new GoogleGenAI({ vertexai: true, project, location: "global" });`,
             kind: "warning",
             text: "gemini-3.7-flash solo corre en la región \"global\" en la Agent Platform (sin residencia regional de datos todavía) — usar us-central1 u otra región da 404. Si copias este patrón, revisa la disponibilidad por región del modelo que necesites.",
           },
+          {
+            type: "p",
+            text: "El mismo interruptor existe dentro de ADK: en vez de una cadena como modelo, le pasas una instancia de Gemini configurada con vertexai: true. Así es como las Demos 1, 2 y 5 ofrecen ambos modos con el mismo código de agente:",
+          },
+          {
+            type: "code",
+            filename: "apps/agent-orchestrator/src/agents/adkRuntime.ts",
+            code: `function resolveAdkModel(mode: AiMode): string | Gemini {
+  if (mode === "ai-studio") return GEMINI_MODEL;
+  return new Gemini({ model: GEMINI_MODEL, vertexai: true, project, location: "global" });
+}`,
+          },
         ],
       },
       {
@@ -466,6 +671,122 @@ new GoogleGenAI({ vertexai: true, project, location: "global" });`,
             type: "demo-link",
             label: "Abrir Demo 4 en vivo",
             url: `${WEB_CLIENT_URL}/#platform`,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "demo-5-travel",
+    title: "Demo 5 (extra) · Planificador de viajes multi-agente",
+    steps: [
+      {
+        title: "El concepto: agentes de investigación en paralelo + síntesis",
+        durationMinutes: 2,
+        blocks: [
+          {
+            type: "p",
+            text: "Este patrón aparece constantemente en apps agénticas: varios agentes especializados investigan aspectos independientes de un problema al mismo tiempo, y un agente final combina sus hallazgos en una única respuesta coherente. Aquí lo mostramos con un caso muy distinto al de triage médico — planificar un viaje — para dejar claro que el patrón, no el dominio, es lo reutilizable.",
+          },
+          {
+            type: "p",
+            text: "Tres agentes ADK (vuelos, hospedaje, actividades) reciben la misma solicitud de viaje y corren en paralelo con Promise.all; un cuarto agente (itinerario) recibe las tres salidas y las sintetiza en un plan día a día. Ninguno de los cuatro necesita herramientas — es generación pura, la forma más simple de un LlmAgent de ADK.",
+          },
+          {
+            type: "code",
+            filename: "apps/agent-orchestrator/src/agents/travelPlanner.ts",
+            code: `const [flightResult, hotelResult, activityResult] = await Promise.all([
+  runAdkAgentTurn(getFlightAgent(mode), summary),
+  runAdkAgentTurn(getHotelAgent(mode), summary),
+  runAdkAgentTurn(getActivityAgent(mode), summary),
+]);
+
+const itineraryResult = await runAdkAgentTurn(
+  getItineraryAgent(mode),
+  \`\${summary}\\n\\nFlight: \${flightResult.finalText}\\n\\nHotel: \${hotelResult.finalText}\\n\\nActivities: \${activityResult.finalText}\`,
+);`,
+          },
+          {
+            type: "callout",
+            kind: "info",
+            text: "Esta demo está inspirada en travel-planner-multi, un proyecto separado del mismo autor que ya combinaba Google AI Studio y ADK. Aquí se reconstruyó sobre la misma infraestructura ADK real que ya viste en la Demo 2 (createDualModeAdkAgent, runAdkAgentTurn) en vez de una capa de orquestación manual, y quedó sobre gemini-3.7-flash con soporte para ambos modos de autenticación.",
+          },
+        ],
+      },
+      {
+        title: "Pruébalo en vivo",
+        durationMinutes: 1,
+        blocks: [
+          {
+            type: "list",
+            items: [
+              "Ajusta origen, destino, fechas, viajeros y presupuesto — o deja los valores de ejemplo.",
+              "Presiona \"Planificar viaje con 4 agentes\" y observa las 3 tarjetas de investigación aparecer, seguidas del itinerario sintetizado.",
+              "Igual que en las Demos 1 y 2, el selector Google AI Studio / Agent Platform decide cómo se autentican los 4 agentes.",
+            ],
+          },
+          {
+            type: "demo-link",
+            label: "Abrir Demo 5 en vivo",
+            url: `${WEB_CLIENT_URL}/#travel`,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "demo-6-medical-panel",
+    title: "Demo 6 (extra) · Panel de contexto médico con WebMCP",
+    steps: [
+      {
+        title: "El concepto: WebMCP más allá de un formulario de triage",
+        durationMinutes: 2,
+        blocks: [
+          {
+            type: "p",
+            text: "La Demo 1 mostró WebMCP con tres herramientas ligadas a un formulario. Esta demo aplica el mismo patrón a un caso de uso distinto — un panel de resultados de laboratorio — para mostrar que \"registrar herramientas en document.modelContext\" no es una receta de un solo uso: cualquier página con datos estructurados puede exponerlos así.",
+          },
+          {
+            type: "p",
+            text: "Además de WebMCP, usa el Summarizer API de Chrome (Summarizer.availability() / .create() / .summarize()) para el resumen inicial, y el mismo global LanguageModel de la Demo 1 para las preguntas de seguimiento — ambos on-device, cero llamadas de red.",
+          },
+          {
+            type: "code",
+            filename: "apps/web-client/src/mcp/medicalMcpTools.ts",
+            code: `export const explainLabResultTool: MCPToolDefinition<{ entryId: string }, ...> = {
+  name: "explainLabResult",
+  description: "Generates a plain-language explanation of one lab result using on-device AI.",
+  parameters: { type: "object", properties: { entryId: { type: "string" } }, required: ["entryId"] },
+  handler: async ({ entryId }) => {
+    const entry = findLabEntry(entryId);
+    const { text, simulated } = await summarizeMedicalResult(entry.raw);
+    return { explanation: text, simulated };
+  },
+};`,
+          },
+          {
+            type: "callout",
+            kind: "info",
+            text: "Esta demo está inspirada en contextual-ai-panel, un proyecto separado del mismo autor. Aquí se reconstruyó con datos y estilo propios de este monorepo, y se le añadieron las tres herramientas WebMCP reales (listLabResults, getLabResult, explainLabResult) que el original no tenía.",
+          },
+        ],
+      },
+      {
+        title: "Pruébalo en vivo",
+        durationMinutes: 1,
+        blocks: [
+          {
+            type: "list",
+            items: [
+              "Haz clic en cualquier resultado (ej. \"TSH\") para ver su explicación generada on-device.",
+              "Cambia a la pestaña \"💬 Preguntar\" y haz una pregunta de seguimiento sobre ese resultado.",
+              "Con WebMCP nativo activo (chrome://flags/#enable-webmcp-testing), estas tres herramientas quedan disponibles para cualquier agente de navegador que las descubra — no solo para el código de esta página.",
+            ],
+          },
+          {
+            type: "demo-link",
+            label: "Abrir Demo 6 en vivo",
+            url: `${WEB_CLIENT_URL}/#medical`,
           },
         ],
       },

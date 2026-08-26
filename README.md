@@ -9,7 +9,11 @@ earthquake relief in Colombia) as the running example for three live demos:
 1. **Interactive Web Apps with Gemini Nano & WebMCP** — on-device inference in the browser.
 2. **Orchestrating Multi-Agent Workflows with Gemini Flash** — cloud function calling across specialist agents.
 3. **Local Agents with Gemma, Gemini Nano & WebMCP** — an open-weights model running fully in-browser via Google AI Edge / MediaPipe.
-4. **(Bonus) Google AI Studio vs. Gemini Enterprise Agent Platform** — the same `gemini-3.7-flash` model called two ways: an AI Studio API key (demos 1-3) versus the Agent Platform (formerly Vertex AI) authenticating as Cloud Run's own service identity, no key at all.
+4. **(Bonus) Google AI Studio vs. Gemini Enterprise Agent Platform** — the same `gemini-3.7-flash` model called two ways: an AI Studio API key versus the Agent Platform (formerly Vertex AI) authenticating as Cloud Run's own service identity, no key at all.
+5. **(Extra) Travel planner multi-agent** — three ADK research agents (flights, hotels, activities) run in parallel, then a fourth synthesizes them into an itinerary. Same domain-agnostic ADK pattern as Demo 2, applied to a different problem.
+6. **(Extra) Medical context panel with WebMCP** — the same "register tools on `document.modelContext`" pattern from Demo 1, applied to a lab-results panel instead of a form, plus Chrome's Summarizer API for on-device explanations.
+
+Demos 1, 2 and 5 each have a **Google AI Studio / Agent Platform** toggle next to their run button — same code, same `gemini-3.7-flash` model, different credentials. Useful when a venue only hands out Google Cloud credits instead of AI Studio credits.
 
 ## Architecture
 
@@ -18,16 +22,16 @@ agentic-web-starter/
 ├── packages/
 │   └── shared-types/        Zod schemas + TS types shared by every app
 ├── apps/
-│   ├── web-client/          React + Vite + Tailwind — hosts all 3 demos as tabs
+│   ├── web-client/          React + Vite + Tailwind — hosts all 6 demos as tabs
 │   │   ├── src/ai/nano/     Chrome Built-in AI (global LanguageModel) wrapper + offline heuristic + demo mode
 │   │   ├── src/ai/gemma/    MediaPipe LLM Inference wrapper for running Gemma in-browser
-│   │   ├── src/mcp/         WebMCP tools (document.modelContext): extractVitals, updateTriageBadge, cacheOfflineRecord + call log
-│   │   └── src/components/  ContextualTriagePanel · OrchestrationConsole · LocalGemmaAgentPanel
+│   │   ├── src/mcp/         WebMCP tools (document.modelContext): triage tools + medical panel tools + call log
+│   │   └── src/components/  ContextualTriagePanel · OrchestrationConsole · LocalGemmaAgentPanel · TravelPlannerPanel · MedicalContextPanel · AiModeToggle
 │   ├── agent-orchestrator/  Node + Express + TypeScript cloud orchestrator
-│   │   ├── src/config/      @google/genai (gemini-3.7-flash) client setup
-│   │   ├── src/agents/      Triage Validator, Hospital Router, Supply Chain agents
+│   │   ├── src/config/      @google/genai (gemini-3.7-flash) client setup — AI Studio and Agent Platform
+│   │   ├── src/agents/      Triage Validator, Hospital Router, Supply Chain, Travel Planner agents (dual-mode ADK)
 │   │   └── src/mcp/         Tool declarations/handlers shared with Gemini function calling
-│   └── codelab/             Google-Codelabs-styled walkthrough of the whole talk + all 3 demos
+│   └── codelab/             Google-Codelabs-styled walkthrough of the whole talk + all 6 demos
 ```
 
 ### Demo 1 · Gemini Nano + WebMCP (`apps/web-client`, tab "1")
@@ -94,6 +98,34 @@ what used to be Vertex AI) instead of an AI Studio API key — authenticating
 via Application Default Credentials, which on Cloud Run is the service's own
 identity. It reads every hospital's current status and asks the model for an
 executive briefing, a genuinely different task from the per-patient demos.
+
+### Demo 5 (extra) · Travel planner multi-agent (`apps/web-client` tab "5")
+
+`POST /api/travel-plan` (`src/agents/travelPlanner.ts`) runs the same
+domain-agnostic ADK pattern as Demo 2 — parallel specialist agents feeding a
+synthesis step — applied to a different problem: three ADK `LlmAgent`s
+(flights, hotels, activities) research a trip concurrently via `Promise.all`,
+then a fourth agent combines their output into a day-by-day itinerary. None
+of the four need tools, just generation. Inspired by a separate
+[`travel-planner-multi`](https://github.com/vanessamarely/travel-planner-multi)
+project, rebuilt here on this repo's real ADK infrastructure
+(`createDualModeAdkAgent`, `runAdkAgentTurn`) on `gemini-3.7-flash`, with the
+same AI Studio / Agent Platform toggle as Demos 1 and 2.
+
+### Demo 6 (extra) · Medical context panel with WebMCP (`apps/web-client` tab "6")
+
+Applies the same "register tools on `document.modelContext`" WebMCP pattern
+from Demo 1 to a different UI: a lab-results panel where clicking any result
+generates a plain-language explanation on-device, via Chrome's
+[Summarizer API](https://developer.chrome.com/docs/ai/summarizer-api)
+(falling back to the same `LanguageModel` used elsewhere), plus a follow-up
+Q&A tab. Three real WebMCP tools (`listLabResults`, `getLabResult`,
+`explainLabResult`, in `src/mcp/medicalMcpTools.ts`) make this panel's data
+and on-device AI callable by any browser agent that discovers them. Inspired
+by a separate
+[`contextual-ai-panel`](https://github.com/vanessamarely/contextual-ai-panel)
+project, rebuilt here with this monorepo's own data, styling, and WebMCP
+tools.
 
 ### Codelab (`apps/codelab`)
 

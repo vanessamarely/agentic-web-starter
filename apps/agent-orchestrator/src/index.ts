@@ -5,20 +5,31 @@ import { z } from "zod";
 import {
   MedicalResourceRequestSchema,
   PatientTriageRecordSchema,
+  TravelRequestSchema,
 } from "@agentic-web-starter/shared-types";
 import { runOrchestration } from "./agents/orchestrator.js";
 import { transcribeAudio } from "./services/transcription.js";
 import { generateSituationalBriefing } from "./agents/situationalBriefing.js";
+import { runTravelPlanner } from "./agents/travelPlanner.js";
+
+const AiModeSchema = z.enum(["ai-studio", "agent-platform"]);
 
 const OrchestrateRequestSchema = z.object({
   patient: PatientTriageRecordSchema,
   regionId: z.string().min(1),
   resourceRequests: z.array(MedicalResourceRequestSchema).optional(),
+  mode: AiModeSchema.optional(),
 });
 
 const TranscribeRequestSchema = z.object({
   audioBase64: z.string().min(1),
   mimeType: z.string().min(1),
+  mode: AiModeSchema.optional(),
+});
+
+const TravelPlanRequestSchema = z.object({
+  trip: TravelRequestSchema,
+  mode: AiModeSchema.optional(),
 });
 
 const app = express();
@@ -60,6 +71,18 @@ app.post("/api/transcribe", (req: Request, res: Response, next: NextFunction) =>
 app.get("/api/briefing", (_req: Request, res: Response, next: NextFunction) => {
   generateSituationalBriefing()
     .then((briefing) => res.json(briefing))
+    .catch(next);
+});
+
+app.post("/api/travel-plan", (req: Request, res: Response, next: NextFunction) => {
+  const parsed = TravelPlanRequestSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request body", issues: parsed.error.issues });
+    return;
+  }
+
+  runTravelPlanner(parsed.data.trip, parsed.data.mode)
+    .then((result) => res.json(result))
     .catch(next);
 });
 

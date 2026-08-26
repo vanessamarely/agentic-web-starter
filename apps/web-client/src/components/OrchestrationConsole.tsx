@@ -5,6 +5,7 @@ import type {
   PatientTriageRecord,
   TriagePriority,
 } from "@agentic-web-starter/shared-types";
+import { AiModeToggle, type AiMode } from "./AiModeToggle";
 
 interface ToolCallTrace {
   name: string;
@@ -23,6 +24,7 @@ interface ConsideredHospital {
 
 interface OrchestrationResult {
   patientId: string;
+  mode: AiMode;
   triageValidation: {
     summary: string;
     isConsistent: boolean | null;
@@ -97,6 +99,7 @@ export function OrchestrationConsole() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<OrchestrationResult | null>(null);
   const [revealedCount, setRevealedCount] = useState(0);
+  const [mode, setMode] = useState<AiMode>("ai-studio");
 
   const handleRun = useCallback(async () => {
     setLoading(true);
@@ -144,7 +147,7 @@ export function OrchestrationConsole() {
       const response = await fetch("/api/orchestrate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ patient, regionId, resourceRequests }),
+        body: JSON.stringify({ patient, regionId, resourceRequests, mode }),
       });
       const body = (await response.json()) as OrchestrationResult | { error: string };
       if (!response.ok || "error" in body) {
@@ -166,6 +169,7 @@ export function OrchestrationConsole() {
     facilityId,
     includeResourceRequest,
     injuries,
+    mode,
     patientLabel,
     priority,
     pulseRate,
@@ -190,15 +194,15 @@ export function OrchestrationConsole() {
 
       <div className="grid grid-cols-3 gap-3 text-xs">
         <div className="rounded border border-l-4 border-slate-800 border-l-sky-500 bg-slate-900 p-3">
-          <p className="font-semibold text-slate-300">1. Triage Validator</p>
+          <p className="font-semibold text-slate-300">1. Validador de Triage</p>
           <p className="mt-1 text-slate-500">¿La prioridad reportada coincide con los vitales?</p>
         </div>
         <div className="rounded border border-l-4 border-slate-800 border-l-amber-500 bg-slate-900 p-3">
-          <p className="font-semibold text-slate-300">2. Hospital Router</p>
+          <p className="font-semibold text-slate-300">2. Enrutador Hospitalario</p>
           <p className="mt-1 text-slate-500">¿Qué hospital con capacidad lo recibe?</p>
         </div>
         <div className="rounded border border-l-4 border-slate-800 border-l-emerald-500 bg-slate-900 p-3">
-          <p className="font-semibold text-slate-300">3. Supply Chain Agent</p>
+          <p className="font-semibold text-slate-300">3. Agente de Insumos</p>
           <p className="mt-1 text-slate-500">¿Quién surte los insumos solicitados?</p>
         </div>
       </div>
@@ -320,6 +324,14 @@ export function OrchestrationConsole() {
           )}
         </div>
 
+        <div className="flex items-center justify-between gap-3 rounded border border-slate-800 bg-slate-950/60 px-3 py-2">
+          <span className="text-xs text-slate-400">
+            Backend de los 3 agentes ADK: API key de AI Studio, o Application Default Credentials
+            en la Gemini Enterprise Agent Platform (créditos de GCP).
+          </span>
+          <AiModeToggle mode={mode} onChange={setMode} />
+        </div>
+
         <button
           type="button"
           onClick={handleRun}
@@ -343,20 +355,24 @@ export function OrchestrationConsole() {
 
       {result && (
         <div className="space-y-3">
+          <p className="text-right text-[11px] uppercase tracking-wide text-slate-600">
+            Corrió vía{" "}
+            {result.mode === "agent-platform" ? "Gemini Enterprise Agent Platform" : "Google AI Studio"}
+          </p>
           {revealedCount > 0 && (
-            <AgentCard title="Triage Validator" accent="border-l-sky-500">
+            <AgentCard title="Validador de Triage" accent="border-l-sky-500">
               <TriageValidationBody outcome={result.triageValidation} />
               <ToolCallDetails toolCalls={result.triageValidation.toolCalls} />
             </AgentCard>
           )}
           {revealedCount > 1 && (
-            <AgentCard title="Hospital Router" accent="border-l-amber-500">
+            <AgentCard title="Enrutador Hospitalario" accent="border-l-amber-500">
               <HospitalRoutingBody outcome={result.hospitalRouting} />
               <ToolCallDetails toolCalls={result.hospitalRouting.toolCalls} />
             </AgentCard>
           )}
           {revealedCount > 2 && (
-            <AgentCard title="Supply Chain Agent" accent="border-l-emerald-500">
+            <AgentCard title="Agente de Insumos" accent="border-l-emerald-500">
               <SupplyChainBody outcome={result.supplyChain} />
               <ToolCallDetails toolCalls={result.supplyChain.toolCalls} />
             </AgentCard>

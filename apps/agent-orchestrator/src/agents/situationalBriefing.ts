@@ -1,4 +1,4 @@
-import { agentPlatformGenAI, AGENT_PLATFORM_MODEL } from "../config/agentPlatformGenai.js";
+import { getAgentPlatformGenAI, AGENT_PLATFORM_MODEL } from "../config/agentPlatformGenai.js";
 import { listHospitals } from "../data/hospitals.js";
 
 const BRIEFING_PROMPT = `Eres un asistente de conciencia situacional para un centro de mando de respuesta a desastres regional. A partir del estado actual de cada hospital de la región (en JSON), redacta en español un briefing ejecutivo conciso (máximo 5 frases) para el comandante de incidente: estado general de capacidad, qué instalaciones están al límite o fuera de servicio, y una recomendación concreta. Prosa plana, sin markdown, sin JSON en tu respuesta.`;
@@ -18,7 +18,7 @@ export interface SituationalBriefing {
 export async function generateSituationalBriefing(): Promise<SituationalBriefing> {
   const hospitals = listHospitals();
 
-  const response = await agentPlatformGenAI.models.generateContent({
+  const response = await getAgentPlatformGenAI().models.generateContent({
     model: AGENT_PLATFORM_MODEL,
     contents: [
       {

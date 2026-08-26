@@ -1,8 +1,8 @@
 import type { HospitalStatus, PatientTriageRecord } from "@agentic-web-starter/shared-types";
-import { createAdkAgent, runAdkAgentTurn } from "./adkRuntime.js";
+import { createDualModeAdkAgent, runAdkAgentTurn, type AiMode } from "./adkRuntime.js";
 import { hospitalRouterTools } from "../mcp/tools.js";
 
-const hospitalRouterAgent = createAdkAgent({
+const getHospitalRouterAgent = createDualModeAdkAgent({
   name: "hospital_router",
   description: "Routes a patient to the best-fit operational hospital with available capacity.",
   instruction: `You are the Hospital Router agent for a disaster-response medical orchestrator. Given a patient's triage priority and a region, call the checkHospitalCapacity tool to see which operational hospitals currently have available beds. IMMEDIATE patients must be routed to the highest-capability trauma center (trauma level 1) with available beds, preferring ICU availability. DELAYED and MINIMAL patients should be routed to preserve trauma level 1 capacity for more severe cases when a lower-level facility can safely handle them. EXPECTANT patients should be routed to the nearest facility that can still provide comfort care. After calling the tool, respond with exactly one line in the form "HOSPITAL_ID: <id> REASON: <one short sentence in Spanish>". If no hospital has capacity, respond with "HOSPITAL_ID: none REASON: <why, in Spanish>". Keep the literal labels HOSPITAL_ID and REASON in English exactly as shown — only the reason sentence itself should be in Spanish.`,
@@ -19,10 +19,11 @@ export interface HospitalRouterOutcome {
 export async function runHospitalRouterAgent(
   patient: PatientTriageRecord,
   regionId: string,
+  mode: AiMode = "ai-studio",
 ): Promise<HospitalRouterOutcome> {
   const userPrompt = `Patient "${patient.patientLabel}" has triage priority ${patient.priority}. Region: ${regionId}. Find the best hospital to route this patient to.`;
 
-  const result = await runAdkAgentTurn(hospitalRouterAgent, userPrompt);
+  const result = await runAdkAgentTurn(getHospitalRouterAgent(mode), userPrompt);
 
   const capacityCall = result.toolCallsExecuted.find(
     (call) => call.name === "checkHospitalCapacity",

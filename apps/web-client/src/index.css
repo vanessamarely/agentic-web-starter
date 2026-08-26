@@ -22,3 +22,20 @@ body {
     transform: translateY(0);
   }
 }
+
+/* Info tooltips (InfoTooltip.tsx): native Popover API + CSS anchor
+   positioning. Anchor positioning is Chrome/Edge only today, so browsers
+   without it just get the platform's default centered popover instead of
+   one tethered to its trigger button — still fully functional. */
+.info-tooltip-popover {
+  margin: 0;
+}
+@supports (position-anchor: --a) {
+  .info-tooltip-popover {
+    position: fixed;
+    position-area: block-end;
+    position-try-fallbacks: flip-block, flip-inline;
+    margin-top: 0.35rem;
+    inset: auto;
+  }
+}

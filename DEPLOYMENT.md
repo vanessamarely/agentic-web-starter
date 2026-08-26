@@ -74,6 +74,28 @@ transparently reaches the backend, no CORS setup, no separate domain, no
 changes to the frontend code. Re-run `firebase deploy --only hosting:webclient`
 after the Cloud Run service exists so Hosting picks up the rewrite target.
 
+### Enabling "Agent Platform" mode on Cloud Run
+
+The demos' "Agent Platform" toggle (as opposed to Google AI Studio) needs two
+things on the deployed service, in addition to everything above:
+
+```bash
+# 1. Tell the backend which project/location to use for Agent Platform calls
+gcloud run services update agent-orchestrator \
+  --region us-central1 \
+  --set-env-vars GOOGLE_CLOUD_PROJECT=YOUR_PROJECT_ID,GOOGLE_CLOUD_LOCATION=global
+
+# 2. Grant Cloud Run's own service account the Agent Platform User role, so
+# it can call the API using its own identity (Application Default
+# Credentials) — no API key involved on this path at all.
+gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+  --member="serviceAccount:$(gcloud projects describe YOUR_PROJECT_ID --format='value(projectNumber)')-compute@developer.gserviceaccount.com" \
+  --role="roles/aiplatform.user"
+```
+
+No API key or secret is needed for this path — Cloud Run authenticates as
+itself. Verify it worked with `curl https://your-web-client-site.web.app/api/briefing`.
+
 ## Keeping cost at effectively zero
 
 - **Cloud Run only bills while handling a request** — no traffic between

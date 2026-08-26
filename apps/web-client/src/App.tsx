@@ -3,18 +3,22 @@ import { ContextualTriagePanel } from "./components/ContextualTriagePanel";
 import { OrchestrationConsole } from "./components/OrchestrationConsole";
 import { LocalGemmaAgentPanel } from "./components/LocalGemmaAgentPanel";
 import { AgentPlatformBriefingPanel } from "./components/AgentPlatformBriefingPanel";
+import { TravelPlannerPanel } from "./components/TravelPlannerPanel";
+import { MedicalContextPanel } from "./components/MedicalContextPanel";
 import { registerWebMcpTools } from "./mcp/webMcpTools";
 
-type TabId = "nano" | "flash" | "gemma" | "platform";
+type TabId = "nano" | "flash" | "gemma" | "platform" | "travel" | "medical";
 
 const TABS: Array<{ id: TabId; label: string; sublabel: string }> = [
   { id: "nano", label: "1 · Gemini Nano + WebMCP", sublabel: "Edge / navegador" },
   { id: "flash", label: "2 · Gemini Flash multi-agente", sublabel: "Cloud / orquestación" },
   { id: "gemma", label: "3 · Gemma local + WebMCP", sublabel: "Edge / modelo abierto" },
   { id: "platform", label: "4 · Agent Platform", sublabel: "Cloud / Model Garden" },
+  { id: "travel", label: "5 · Planificador de viajes", sublabel: "Cloud / ADK multi-agente" },
+  { id: "medical", label: "6 · Panel médico contextual", sublabel: "Edge / WebMCP" },
 ];
 
-const VALID_TABS: TabId[] = ["nano", "flash", "gemma", "platform"];
+const VALID_TABS: TabId[] = ["nano", "flash", "gemma", "platform", "travel", "medical"];
 
 function tabFromHash(): TabId {
   const hash = window.location.hash.replace("#", "") as TabId;
@@ -64,6 +68,8 @@ export default function App() {
       {activeTab === "flash" && <OrchestrationConsole />}
       {activeTab === "gemma" && <LocalGemmaAgentPanel />}
       {activeTab === "platform" && <AgentPlatformBriefingPanel />}
+      {activeTab === "travel" && <TravelPlannerPanel />}
+      {activeTab === "medical" && <MedicalContextPanel />}
     </div>
   );
 }

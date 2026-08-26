@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from "react";
+import type { AiMode } from "./AiModeToggle";
 
 type RecorderState = "idle" | "recording" | "transcribing" | "error";
 
@@ -21,7 +22,13 @@ function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
-export function VoiceNoteButton({ onTranscript }: { onTranscript: (text: string) => void }) {
+export function VoiceNoteButton({
+  onTranscript,
+  mode = "ai-studio",
+}: {
+  onTranscript: (text: string) => void;
+  mode?: AiMode;
+}) {
   const [state, setState] = useState<RecorderState>("idle");
   const [error, setError] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -38,7 +45,7 @@ export function VoiceNoteButton({ onTranscript }: { onTranscript: (text: string)
         const response = await fetch("/api/transcribe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ audioBase64, mimeType: mimeType.split(";")[0] }),
+          body: JSON.stringify({ audioBase64, mimeType: mimeType.split(";")[0], mode }),
         });
         const body = (await response.json()) as { transcript?: string; error?: string };
         if (!response.ok || !body.transcript) {
@@ -51,7 +58,7 @@ export function VoiceNoteButton({ onTranscript }: { onTranscript: (text: string)
         setError(err instanceof Error ? err.message : "No se pudo transcribir el audio.");
       }
     },
-    [onTranscript],
+    [mode, onTranscript],
   );
 
   const startRecording = useCallback(async () => {
@@ -109,7 +116,7 @@ export function VoiceNoteButton({ onTranscript }: { onTranscript: (text: string)
         </button>
       )}
       <span className="rounded bg-amber-950 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-500">
-        ☁️ Usa la nube (Gemini Flash)
+        ☁️ {mode === "agent-platform" ? "Nube · Agent Platform" : "Nube · AI Studio"}
       </span>
       {error && <span className="text-xs text-red-400">{error}</span>}
     </div>
