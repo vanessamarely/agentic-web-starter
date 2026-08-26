@@ -47,7 +47,12 @@ async function initGemmaEngine(): Promise<GemmaLoadResult> {
     const genai = await FilesetResolver.forGenAiTasks(WASM_BASE);
     const llmInference = await LlmInference.createFromOptions(genai, {
       baseOptions: { modelAssetPath: MODEL_ASSET_PATH },
-      maxTokens: 512,
+      // maxTokens is the model's total context budget (prompt + generated
+      // output combined, confirmed from the engine's own error message: "512"
+      // left no room to generate anything once the prompt itself used most of
+      // it. 256 leaves headroom for the prompt while still bounding how long
+      // a small int4 model like Gemma 3 1B can spiral into a repetition loop.
+      maxTokens: 256,
       topK: 40,
       temperature: 0.4,
       randomSeed: 7,

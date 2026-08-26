@@ -6,6 +6,7 @@ import type {
   TriagePriority,
 } from "@agentic-web-starter/shared-types";
 import { AiModeToggle, type AiMode } from "./AiModeToggle";
+import { REGIONS } from "../data/regions";
 
 interface ToolCallTrace {
   name: string;
@@ -62,11 +63,6 @@ const RESOURCE_LABEL: Record<string, string> = {
   SPLINTS: "Férulas",
   OXYGEN: "Oxígeno",
 };
-
-const REGIONS = [
-  { id: "eje-cafetero", label: "Eje Cafetero (Armenia, Pereira, Manizales, Calarcá)" },
-  { id: "tolima", label: "Tolima (Ibagué — fuera de servicio, para probar fallos)" },
-];
 
 const RESOURCE_TYPES: MedicalResourceType[] = [
   "BLOOD_O_NEG",

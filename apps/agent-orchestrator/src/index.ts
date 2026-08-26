@@ -68,8 +68,14 @@ app.post("/api/transcribe", (req: Request, res: Response, next: NextFunction) =>
     .catch(next);
 });
 
-app.get("/api/briefing", (_req: Request, res: Response, next: NextFunction) => {
-  generateSituationalBriefing()
+app.get("/api/briefing", (req: Request, res: Response, next: NextFunction) => {
+  const regionId = typeof req.query.regionId === "string" ? req.query.regionId : "";
+  if (!regionId) {
+    res.status(400).json({ error: "Missing required query param: regionId" });
+    return;
+  }
+
+  generateSituationalBriefing(regionId)
     .then((briefing) => res.json(briefing))
     .catch(next);
 });

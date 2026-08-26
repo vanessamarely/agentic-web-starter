@@ -539,10 +539,9 @@ for await (const event of runner.runEphemeral({
           {
             type: "list",
             items: [
-              "Ve a Kaggle Models (o la página de Google AI Edge) y busca \"Gemma\".",
-              "Acepta la licencia de uso de Gemma (requerida una sola vez).",
-              "Descarga la variante ya convertida para LLM Inference API (formato .task o .litertlm, ej. Gemma 3 1B int4 — pesa unos cientos de MB).",
-              "Guarda el archivo en apps/web-client/public/models/gemma.task (esa carpeta está en .gitignore, nunca subas el modelo al repo).",
+              "Ve a la ficha de Gemma-3n E2B (más liviano) o E4B (más capaz) en Hugging Face y acepta la licencia de Gemma (requerida una sola vez).",
+              "Descarga el archivo que tenga \"-Web\" en el nombre (ej. gemma-3n-E2B-it-int4-Web.litertlm) — según la propia guía de MediaPipe LLM Inference para Web de Google, solo esos vienen convertidos para navegador; otras variantes (incluyendo los listados planos de TFLite en Kaggle) no funcionan aquí.",
+              "Guarda el archivo como apps/web-client/public/models/gemma.task — la extensión no importa, MediaPipe lee el contenido (esa carpeta está en .gitignore, nunca subas el modelo al repo).",
             ],
           },
           {
@@ -663,7 +662,7 @@ new GoogleGenAI({ vertexai: true, project, location: "global" });`,
           {
             type: "list",
             items: [
-              "Presiona \"Generar briefing regional\" — a diferencia de las demos 1-3 (un paciente a la vez), esta le pide a Gemini que lea el estado de TODOS los hospitales de la región y redacte un resumen ejecutivo.",
+              "Elige una región y presiona \"Generar briefing de esta región\" — a diferencia de las demos 1-3 (un paciente a la vez), esta le pide a Gemini que lea el estado de todos los hospitales de esa región y redacte un resumen ejecutivo.",
               "Fíjate en la etiqueta \"vía Gemini Enterprise Agent Platform\" en el resultado — ese mismo texto sale de gemini-3.7-flash, sin ninguna API key involucrada.",
             ],
           },
@@ -904,9 +903,9 @@ exports.disableBillingOnBudgetExceeded = async (cloudEvent) => {
                 description: "Catálogo de modelos gestionados para llevar tus agentes a producción.",
               },
               {
-                label: "Kaggle Models — Gemma",
-                url: "https://www.kaggle.com/models/google/gemma",
-                description: "Descarga pesos de Gemma listos para MediaPipe / Google AI Edge.",
+                label: "Gemma-3n en Hugging Face — variantes \"-Web\"",
+                url: "https://huggingface.co/google/gemma-3n-E2B-it-litert-lm",
+                description: "Descarga el archivo .litertlm con \"-Web\" en el nombre, listo para MediaPipe en el navegador.",
               },
               {
                 label: "Google AI Edge (MediaPipe)",

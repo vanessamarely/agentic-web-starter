@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { REGIONS } from "../data/regions";
 
 interface SituationalBriefing {
   briefing: string;
@@ -7,6 +8,7 @@ interface SituationalBriefing {
 }
 
 export function AgentPlatformBriefingPanel() {
+  const [regionId, setRegionId] = useState(REGIONS[0]!.id);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<SituationalBriefing | null>(null);
@@ -16,7 +18,7 @@ export function AgentPlatformBriefingPanel() {
     setError(null);
     setResult(null);
     try {
-      const response = await fetch("/api/briefing");
+      const response = await fetch(`/api/briefing?regionId=${encodeURIComponent(regionId)}`);
       const body = (await response.json()) as SituationalBriefing | { error: string };
       if (!response.ok || "error" in body) {
         throw new Error("error" in body ? body.error : `HTTP ${response.status}`);
@@ -27,16 +29,16 @@ export function AgentPlatformBriefingPanel() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [regionId]);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-6">
       <header>
         <h1 className="text-2xl font-bold text-slate-100">Briefing Regional</h1>
         <p className="text-sm text-slate-400">
-          Un comandante de incidente necesita, en segundos, un resumen de cómo está la red
-          hospitalaria de la región completa — no un paciente a la vez. Este panel le pide a
-          Gemini que lea el estado de todos los hospitales y redacte un briefing ejecutivo.
+          Elige una región y este panel le pide a Gemini que lea el estado actual de todos sus
+          hospitales — no un paciente a la vez, como en la Demo 2 — y redacte un resumen ejecutivo
+          de la red completa.
         </p>
       </header>
 
@@ -51,14 +53,29 @@ export function AgentPlatformBriefingPanel() {
         </p>
       </div>
 
-      <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+      <section className="space-y-3 rounded-lg border border-slate-800 bg-slate-900 p-4">
+        <label className="block text-sm font-medium text-slate-300">
+          Región
+          <select
+            className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100"
+            value={regionId}
+            onChange={(e) => setRegionId(e.target.value)}
+          >
+            {REGIONS.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
         <button
           type="button"
           onClick={handleGenerate}
           disabled={loading}
           className="w-full rounded bg-purple-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-purple-500 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {loading ? "Generando briefing…" : "Generar briefing regional"}
+          {loading ? "Generando briefing…" : "Generar briefing de esta región"}
         </button>
       </section>
 
@@ -78,7 +95,7 @@ export function AgentPlatformBriefingPanel() {
         <section className="animate-[fadeIn_0.3s_ease-out] rounded-lg border border-slate-800 border-l-4 border-l-purple-500 bg-slate-900 p-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold uppercase tracking-wide text-slate-200">
-              Briefing ejecutivo
+              Briefing ejecutivo — {REGIONS.find((r) => r.id === regionId)?.label ?? regionId}
             </h3>
             <span className="text-[11px] uppercase tracking-wide text-slate-600">
               vía Gemini Enterprise Agent Platform

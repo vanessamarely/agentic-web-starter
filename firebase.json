@@ -3,7 +3,7 @@
     {
       "target": "webclient",
       "public": "apps/web-client/dist",
-      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**", "models/**", "wasm/**"],
       "rewrites": [
         {
           "source": "/api/**",

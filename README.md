@@ -168,11 +168,16 @@ need the "runs on Google" story.
 Demo 3 works out of the box in **safe mode** (no download needed). To show
 real on-device inference:
 
-1. Go to [Kaggle Models](https://www.kaggle.com/models/google/gemma) or
-   Google AI Edge and accept the Gemma license.
-2. Download a web-compatible variant (`.task` or `.litertlm`, e.g. a Gemma 3
-   1B int4 build).
-3. Save it as `apps/web-client/public/models/gemma.task` (gitignored — never
+1. Go to the [Gemma-3n E2B](https://huggingface.co/google/gemma-3n-E2B-it-litert-lm/blob/main/gemma-3n-E2B-it-int4-Web.litertlm)
+   (smaller/faster) or [E4B](https://huggingface.co/google/gemma-3n-E4B-it-litert-lm/blob/main/gemma-3n-E4B-it-int4-Web.litertlm)
+   (larger) model card on Hugging Face and accept the Gemma license. Only
+   files with **`-Web` in the name** are converted for browser use — per
+   Google's own [MediaPipe LLM Inference Web guide](https://developers.google.com/edge/mediapipe/solutions/genai/llm_inference/web_js),
+   other variants (including Kaggle's plain TFLite listings) aren't
+   web-ready and won't load here.
+2. Download the `.litertlm` file directly (no zip, no conversion needed).
+3. Save it as `apps/web-client/public/models/gemma.task` — the extension
+   doesn't matter to MediaPipe, it reads the content (gitignored — never
    commit model weights).
 4. In the app's "Agente Local con Gemma" tab, uncheck "Modo seguro" and press
    "Cargar Gemma real".

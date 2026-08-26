@@ -102,7 +102,7 @@ export function LocalGemmaAgentPanel() {
     const useRealModel = !simulatedMode && engineState.phase === "ready";
     if (useRealModel) {
       try {
-        const prompt = `Eres un asistente de campo que redacta reportes breves de traspaso entre socorristas. En máximo 2 frases en español, redacta un reporte para: paciente "${patientLabel}", prioridad de triage ${suggestion.priority}, motivo: ${suggestion.rationale}. No uses JSON, solo el texto del reporte.`;
+        const prompt = `Redacta en español UNA sola oración corta (máximo 25 palabras) de reporte de traspaso para un socorrista. Paciente "${patientLabel}", prioridad ${suggestion.priority}, motivo: ${suggestion.rationale}. Responde solo con esa oración: sin listas, sin negritas, sin encabezados, sin repetir el formato.`;
         const text = await engineState.engine.generate(prompt);
         setReport(text.trim());
         setReportSource("gemma-local");
