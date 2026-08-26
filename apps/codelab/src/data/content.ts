@@ -1,7 +1,6 @@
 import type { Module } from "./types";
 
 const WEB_CLIENT_URL = "https://agentic-web-starter-client.web.app";
-const REPO_URL = "https://github.com/vanessamarely/agentic-web-starter";
 
 export const modules: Module[] = [
   {
@@ -14,7 +13,7 @@ export const modules: Module[] = [
         blocks: [
           {
             type: "p",
-            text: "Hoy vamos a integrar agentes autónomos y contextuales combinando la velocidad de Gemini Flash en la nube con la eficiencia de Gemini Nano en el navegador. Todo el código que vas a ver es real y funciona — no son slides con pseudocódigo, es un proyecto completo que puedes clonar hoy mismo.",
+            text: "Hoy vamos a integrar agentes autónomos y contextuales combinando la velocidad de Gemini Flash en la nube con la eficiencia de Gemini Nano en el navegador. Todo el código que vas a ver es real y funciona — no son slides con pseudocódigo, es un proyecto completo que vas a ver funcionando demo tras demo.",
           },
           {
             type: "list",
@@ -63,11 +62,6 @@ export const modules: Module[] = [
           {
             type: "p",
             text: "Opción B: continúa leyendo — el resto de este codelab es el mismo contenido en formato paso a paso, con el código real y links a las demos en vivo.",
-          },
-          {
-            type: "demo-link",
-            label: "Ver el repositorio completo",
-            url: REPO_URL,
           },
         ],
       },
@@ -911,11 +905,6 @@ exports.disableBillingOnBudgetExceeded = async (cloudEvent) => {
                 label: "Google AI Edge (MediaPipe)",
                 url: "https://ai.google.dev/edge/mediapipe",
                 description: "Runtime on-device para web, Android e iOS.",
-              },
-              {
-                label: "Repositorio de este proyecto",
-                url: REPO_URL,
-                description: "Todo el código de esta charla — clónalo y cambia el dominio por el tuyo.",
               },
             ],
           },
