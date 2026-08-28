@@ -15,8 +15,8 @@
     --dark: #202124;
     --gray-body: #3F3F3F;
     --gray-mid: #5F6368;
-    --gray-light: #9AA0A6;
-    --border: #DADCE0;
+    --gray-light: #70757a;
+    --border: #80868b;
     --code-bg: #1F1F1F;
     --code-text: #CCCCCC;
     --orange: #FFA65C;
@@ -33,47 +33,42 @@
     display: none;
     flex-direction: column;
     padding: 5.5vw 7vw;
-    background: #fff;
-    color: var(--gray-body);
+    background: var(--dark);
+    color: #e8eaed;
   }
   .slide.active { display: flex; }
-  .slide.dark { background: var(--dark); color: #e8eaed; }
 
   .eyebrow {
-    color: var(--blue);
+    color: #8ab4f8;
     font-weight: 700;
     letter-spacing: 0.09em;
     text-transform: uppercase;
     font-size: clamp(0.7rem, 1vw, 0.95rem);
     margin: 0 0 0.8rem;
   }
-  .slide.dark .eyebrow { color: #8ab4f8; }
 
   h1 {
     font-family: 'Roboto', sans-serif;
     font-weight: 700;
     font-size: clamp(1.8rem, 3.6vw, 3.1rem);
     line-height: 1.15;
-    color: var(--blue);
+    color: #fff;
     margin: 0 0 1rem;
   }
-  .slide.dark h1 { color: #fff; }
   h2.kicker {
     font-weight: 500;
     font-size: clamp(1rem, 1.4vw, 1.25rem);
-    color: var(--gray-mid);
+    color: #bdc1c6;
     margin: -0.6rem 0 1.6rem;
   }
-  .slide.dark h2.kicker { color: #bdc1c6; }
 
   p.lead {
     font-size: clamp(1rem, 1.5vw, 1.4rem);
     line-height: 1.55;
     max-width: 62ch;
-    color: var(--gray-body);
+    color: #e8eaed;
     margin: 0 0 1rem;
   }
-  .slide.dark p.lead { color: #e8eaed; }
 
   .body-area { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 1.1rem; overflow: hidden; }
 
@@ -82,33 +77,31 @@
     position: relative; padding-left: 1.6rem;
     font-size: clamp(0.95rem, 1.25vw, 1.2rem);
     line-height: 1.5;
-    color: var(--gray-body);
+    color: #e8eaed;
   }
-  .slide.dark ul.points li { color: #e8eaed; }
   ul.points li::before {
     content: "";
     position: absolute; left: 0; top: 0.5em;
     width: 8px; height: 8px; border-radius: 50%;
     background: var(--blue);
   }
-  ul.points li strong { color: var(--dark); font-weight: 700; }
-  .slide.dark ul.points li strong { color: #fff; }
+  ul.points li strong { color: #fff; font-weight: 700; }
   ul.points.numbered { counter-reset: step; }
   ul.points.numbered li { padding-left: 2.4rem; }
   ul.points.numbered li::before {
     counter-increment: step;
     content: counter(step);
     width: 1.6rem; height: 1.6rem; border-radius: 50%;
-    background: var(--blue); color: #fff;
+    background: var(--blue-dark); color: #fff;
     font-size: 0.8rem; font-weight: 700;
     display: flex; align-items: center; justify-content: center;
     top: 0;
   }
 
   table.gtable { border-collapse: collapse; width: 100%; font-size: clamp(0.8rem, 1.05vw, 1rem); }
-  table.gtable th { text-align: left; color: var(--gray-mid); font-weight: 500; padding: 0.5rem 0.9rem; border-bottom: 2px solid var(--border); }
-  table.gtable td { text-align: left; padding: 0.65rem 0.9rem; border-bottom: 1px solid #edeeef; vertical-align: top; color: var(--gray-body); }
-  table.gtable td strong { color: var(--dark); }
+  table.gtable th { text-align: left; color: #bdc1c6; font-weight: 500; padding: 0.5rem 0.9rem; border-bottom: 2px solid var(--border); }
+  table.gtable td { text-align: left; padding: 0.65rem 0.9rem; border-bottom: 1px solid #3c4043; vertical-align: top; color: #e8eaed; }
+  table.gtable td strong { color: #fff; }
 
   .cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.2rem; }
   .cards.cols-3 { grid-template-columns: repeat(3, 1fr); }
@@ -126,6 +119,9 @@
     background: var(--blue-chip-bg); color: var(--blue-dark);
     padding: 0.2rem 0.55rem; border-radius: 999px; margin-bottom: 0.5rem;
   }
+
+  .slide a { color: #669df6; }
+  .card a { color: var(--blue-dark); }
 
   pre.code {
     background: var(--code-bg); color: var(--code-text);
@@ -155,14 +151,12 @@
   .tok-punct { color: #D4D4D4; }
 
   .quote-mark { font-size: 5rem; color: var(--blue); line-height: 1; font-family: Georgia, serif; margin-bottom: -1rem; }
-  .quote-text { font-size: clamp(1.6rem, 3vw, 2.6rem); font-weight: 500; color: var(--dark); max-width: 22ch; line-height: 1.3; }
-  .slide.dark .quote-text { color: #fff; }
+  .quote-text { font-size: clamp(1.6rem, 3vw, 2.6rem); font-weight: 500; color: #fff; max-width: 22ch; line-height: 1.3; }
 
   .footer-handle {
     position: absolute; left: 0; right: 0; bottom: 4vh; text-align: center;
-    font-weight: 700; color: var(--blue); font-size: 0.95rem; letter-spacing: 0.01em;
+    font-weight: 700; color: #8ab4f8; font-size: 0.95rem; letter-spacing: 0.01em;
   }
-  .slide.dark .footer-handle { color: #8ab4f8; }
   .page-no { position: absolute; right: 2.2vw; bottom: 2vh; font-size: 0.75rem; color: var(--gray-light); }
 
   .divider-title {
@@ -245,7 +239,7 @@
       <li>Mismo patron de la Demo 1 &mdash; <code>document.modelContext.registerTool()</code> &mdash; aplicado a resultados de laboratorio.</li>
       <li>Summarizer API y LanguageModel, ambos on-device.</li>
     </ul>
-    <p class="lead" style="font-size:0.95rem; color:var(--gray-mid);">Esta demo corre en un solo modo &mdash; no aplica la distincion AI Studio / Agent Platform.</p>
+    <p class="lead" style="font-size:0.95rem; color:#bdc1c6;">Esta demo corre en un solo modo &mdash; no aplica la distincion AI Studio / Agent Platform.</p>
   </div>
   <div class="footer-handle">@vanessamarely</div>
 </section>

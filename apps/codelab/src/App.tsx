@@ -69,9 +69,17 @@ export default function App() {
           <p className="px-2 text-[11px] font-medium uppercase tracking-wide text-[#5f6368]">
             Building Agentic Apps
           </p>
-          <p className="mb-4 px-2 text-[11px] text-[#9aa0a6]">
+          <p className="mb-1 px-2 text-[11px] text-[#9aa0a6]">
             con Gemini Flash y Nano · ~{totalMinutes} min
           </p>
+          <a
+            href="https://github.com/vanessamarely/agentic-web-starter"
+            target="_blank"
+            rel="noreferrer"
+            className="mb-4 flex items-center gap-1 px-2 text-[11px] font-medium text-gdev-blue hover:underline"
+          >
+            Ver repositorio en GitHub ↗
+          </a>
           <nav className="space-y-4">
             {modules.map((mod) => (
               <div key={mod.id}>

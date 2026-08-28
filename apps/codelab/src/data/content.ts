@@ -786,6 +786,610 @@ const itineraryResult = await runAdkAgentTurn(
     ],
   },
   {
+    id: "orquestando-multiagentes",
+    title: "Orchestrating Multi-Agent Workflows with Gemini Flash",
+    steps: [
+      {
+        title: "¿Qué es un agente, y qué necesidad resuelve?",
+        durationMinutes: 2,
+        blocks: [
+          {
+            type: "p",
+            text: "Un agente no es solo \"un prompt más inteligente\". Es un programa que recibe un objetivo en lenguaje natural, decide por sí mismo qué pasos dar y qué herramientas usar para lograrlo, y solo entonces responde — a diferencia de un chatbot clásico, que recibe una pregunta y genera texto sin poder consultar ni modificar nada fuera de su propia respuesta.",
+          },
+          {
+            type: "p",
+            text: "La necesidad que resuelve es concreta: tareas donde la respuesta correcta depende de datos que cambian (signos vitales de un paciente, capacidad de un hospital, inventario de insumos) y donde alguien tendría que revisar varias fuentes y decidir. Un agente puede consultar esas fuentes por su cuenta, en vez de esperar a que un humano lo haga.",
+          },
+          {
+            type: "list",
+            items: [
+              "Demo 1 (WebMCP): el modelo decide cuándo llamar a una herramienta de la propia página — nadie programó \"si el usuario dice X, ejecuta Y\"; el modelo elige la herramienta.",
+              "Demo 2 (ADK multi-agente): tres agentes distintos consultan tres fuentes distintas (vitales, capacidad hospitalaria, inventario), y cada uno decide si necesita llamar a su herramienta antes de responder.",
+              "Demo 5 (ADK en paralelo): cuatro agentes investigan aspectos independientes de un mismo problema al mismo tiempo, sin que un humano coordine el orden.",
+            ],
+          },
+          {
+            type: "callout",
+            kind: "info",
+            text: "La pieza que distingue a un agente de una función normal es la autonomía sobre la herramienta: tú le das al modelo una lista de funciones disponibles con su descripción, y es el modelo — no tu código — quien decide si las necesita, con qué argumentos, y en qué orden.",
+          },
+        ],
+      },
+      {
+        title: "Cómo se construye un agente con ADK, paso a paso",
+        durationMinutes: 4,
+        blocks: [
+          {
+            type: "p",
+            text: "Este es el proceso real que este proyecto usa para crear cada agente de las Demos 2 y 5. Sigue estos cinco pasos con tu propio caso y tendrás un agente funcional.",
+          },
+          {
+            type: "list",
+            items: [
+              "1. Define el dominio: qué decisión necesita tomar el agente, y qué dato externo necesita para tomarla bien. En este proyecto: ¿la prioridad de triage reportada coincide con los signos vitales?",
+              "2. Escribe la herramienta (tool): una función normal de TypeScript con un nombre, una descripción en lenguaje natural, y un schema JSON de sus parámetros — el modelo lee la descripción para decidir cuándo llamarla.",
+              "3. Escribe la instrucción (system prompt): el rol del agente, la tarea exacta, y restricciones explícitas (\"llama a la herramienta exactamente una vez\", \"nunca inventes datos\", \"responde en español\").",
+              "4. Crea el Agent de ADK: nombre, modelo (gemini-3.7-flash), la instrucción del paso 3, y la lista de herramientas del paso 2.",
+              "5. Ejecútalo con un Runner: le pasas el mensaje del usuario, y ADK se encarga del loop completo — decidir si llama a la herramienta, ejecutarla, y generar la respuesta final.",
+            ],
+          },
+          {
+            type: "code",
+            filename: "apps/agent-orchestrator/src/mcp/tools.ts — paso 2",
+            code: `export const validateClinicalUrgencyTool: MCPToolDefinition = {
+  name: "validateClinicalUrgency",
+  description: "Cross-checks a reported START triage priority against raw vitals using the authoritative server-side decision tree.",
+  parameters: {
+    type: "object",
+    properties: {
+      respiratoryRate: { type: "integer", description: "Breaths per minute." },
+      pulseRate: { type: "integer", description: "Beats per minute." },
+      reportedPriority: { type: "string", enum: ["IMMEDIATE", "DELAYED", "MINOR", "DECEASED"] },
+    },
+    required: ["respiratoryRate", "pulseRate", "reportedPriority"],
+  },
+  handler: async (args) => {
+    // Logica deterministica, sin IA: el arbol de decision real del triage START
+  },
+};`,
+          },
+          {
+            type: "code",
+            filename: "apps/agent-orchestrator/src/agents/triageValidator.ts — pasos 3, 4 y 5",
+            code: `const agent = new Agent({
+  name: "triage_validator",
+  model: "gemini-3.7-flash",
+  instruction: "You are the Triage Validator agent... call validateClinicalUrgency exactly once with the patient's vitals and reported priority...",
+  tools: [toAdkTool(validateClinicalUrgencyTool)],
+});
+
+const runner = new InMemoryRunner({ agent });
+for await (const event of runner.runEphemeral({
+  userId: "agentic-web-starter",
+  newMessage: { role: "user", parts: [{ text: userPrompt }] },
+})) {
+  // ADK ya decidio llamar la herramienta y la ejecuto -- solo armamos el resultado
+}`,
+          },
+          {
+            type: "callout",
+            kind: "success",
+            text: "Este mismo patrón — herramienta con schema, instrucción, Agent y Runner — es todo lo que necesitas para cualquier dominio. Cambia validateClinicalUrgency por tu propia función y ya tienes el esqueleto de un agente nuevo.",
+          },
+        ],
+      },
+      {
+        title: "Sin código · Gemini Enterprise y Agent Designer",
+        durationMinutes: 3,
+        blocks: [
+          {
+            type: "p",
+            text: "Gemini Enterprise es la app (antes Agentspace) donde cualquier persona de tu organización — programe o no — puede crear, compartir y correr agentes. La pieza que hace esto posible sin código es Agent Designer: describes el agente en una sola frase en lenguaje natural, y Gemini genera una primera versión que puedes ajustar sin tocar código.",
+          },
+          {
+            type: "list",
+            items: [
+              "1. Abre la app de Gemini Enterprise y haz clic en \"+ Create agent\".",
+              "2. Escribe en una frase qué debe hacer el agente — por ejemplo: \"Responde preguntas sobre nuestras políticas de reembolso usando los PDFs del Drive de finanzas\".",
+              "3. Opcionalmente, conecta fuentes de datos (Drive, sitios internos, Jira, Confluence) o sube archivos de referencia directamente.",
+              "4. Gemini genera una primera versión del agente; pruébala en la pestaña Preview.",
+              "5. Refina el comportamiento escribiéndole instrucciones adicionales en el panel de chat, igual que ajustarías un prompt.",
+              "6. (Opcional) Cambia a \"Proceed to builder\" para editar visualmente el flujo en un lienzo, agregar subagentes, o construir lógica de varios pasos.",
+              "7. Haz clic en \"Create\" para publicarlo en tu Agents gallery — el portal donde tu organización descubre y comparte agentes.",
+            ],
+          },
+          {
+            type: "callout",
+            kind: "info",
+            text: "Los agentes creados aquí quedan disponibles en la Agents gallery de tu organización, junto a los agentes hechos por Google — es la puerta más rápida para que alguien sin experiencia técnica arme algo funcional en minutos.",
+          },
+          {
+            type: "links",
+            items: [
+              {
+                label: "Agent Designer — overview",
+                url: "https://docs.cloud.google.com/gemini/enterprise/docs/agent-designer",
+                description: "Qué es Agent Designer y cómo se relaciona con el resto de Gemini Enterprise.",
+              },
+              {
+                label: "Create an agent — guía oficial paso a paso",
+                url: "https://docs.cloud.google.com/gemini/enterprise/docs/agent-designer/create-agent",
+                description: "La fuente de los 7 pasos de arriba, con el detalle completo de cada pantalla.",
+              },
+              {
+                label: "Codelab oficial: Create no-code agents with Gemini Enterprise",
+                url: "https://codelabs.developers.google.com/next26/dev-keynote/gemini-enterprise",
+                description: "Un tutorial guiado completo si quieres practicar esto con las manos, paso a paso.",
+              },
+            ],
+          },
+        ],
+      },
+      {
+        title: "Sin código · Conversational Agents (Dialogflow CX)",
+        durationMinutes: 2,
+        blocks: [
+          {
+            type: "p",
+            text: "Conversational Agents (el nombre actual de Dialogflow CX) resuelve un problema distinto al de Agent Designer: no arma un agente de un vistazo con una frase, sino que da un editor visual de flujos para diseñar conversaciones con estados explícitos — útil cuando necesitas control fino sobre cada paso (verificación de identidad, transferencia a un humano, integraciones con pagos), no solo respuestas generadas libremente por un LLM.",
+          },
+          {
+            type: "list",
+            items: [
+              "Cada \"page\" del flujo representa un estado de la conversación (ej. \"pidiendo número de pedido\"), con intents que detectan qué dijo el usuario y rutas que deciden a qué page ir después.",
+              "Los webhooks conectan cada page con tus propios sistemas — inventario, CRM, pasarela de pago — igual que una herramienta MCP, pero configurado visualmente en vez de en código.",
+              "Puedes combinarlo con generación por LLM (Generative fallback) para las partes de la conversación donde sí quieres que el modelo improvise, dentro de los límites que tú definas.",
+            ],
+          },
+          {
+            type: "callout",
+            kind: "success",
+            text: "Regla práctica: usa Conversational Agents cuando la conversación necesita pasos obligatorios y auditables (regulado, transaccional). Usa Agent Designer cuando quieres que el modelo tenga más libertad para razonar sobre lenguaje natural libre.",
+          },
+          {
+            type: "links",
+            items: [
+              {
+                label: "Conversational Agents (Dialogflow CX) — documentación",
+                url: "https://cloud.google.com/dialogflow/cx/docs",
+                description: "El editor de flujos, states, intents y webhooks en detalle.",
+              },
+            ],
+          },
+        ],
+      },
+      {
+        title: "Sin código · Agent Garden",
+        durationMinutes: 2,
+        blocks: [
+          {
+            type: "p",
+            text: "Agent Garden no es una herramienta de creación desde cero — es una biblioteca curada de agentes ADK de referencia ya construidos (RAG, multi-agente, tool-use), con código real disponible en GitHub. Es el punto de partida cuando sabes que quieres algo parecido a un patrón conocido, en vez de empezar en blanco.",
+          },
+          {
+            type: "list",
+            items: [
+              "1. Explora la galería y elige una muestra cuyo patrón se parezca a lo que necesitas — por ejemplo, un agente RAG sobre tus documentos.",
+              "2. Cada muestra trae una descripción, casos de uso y un diagrama de su arquitectura — revísalo antes de clonar.",
+              "3. Abre el link a GitHub de esa muestra y clona el repositorio.",
+              "4. Ajusta la instrucción, las herramientas o los datos a tu propio dominio — es código ADK real, el mismo patrón que ya viste en la Demo 2.",
+              "5. Despliega tu versión con el SDK de Agent Platform: a Agent Engine (gestionado), Cloud Run, o tu propia infraestructura.",
+            ],
+          },
+          {
+            type: "callout",
+            kind: "info",
+            text: "Agent Garden es la ruta \"sin código\" más honesta de las tres: técnicamente sí hay código (el del ejemplo), pero tú nunca partes de una página en blanco — copias, ajustas y despliegas.",
+          },
+          {
+            type: "links",
+            items: [
+              {
+                label: "Agent Garden — documentación",
+                url: "https://docs.cloud.google.com/gemini-enterprise-agent-platform/build/agent-garden",
+                description: "Cómo explorar, clonar y personalizar las muestras de la galería.",
+              },
+            ],
+          },
+        ],
+      },
+      {
+        title: "Con código · Multiagentes con ADK",
+        durationMinutes: 3,
+        blocks: [
+          {
+            type: "p",
+            text: "Ya construiste un agente individual en el paso 2. Un sistema multiagente añade una capa de orquestación sobre varios de esos agentes. ADK soporta tres patrones principales, y los tres ya están corriendo en este proyecto:",
+          },
+          {
+            type: "table",
+            headers: ["Patrón", "Cómo funciona", "Dónde lo viste"],
+            rows: [
+              [
+                "Paralelo",
+                "Varios agentes reciben la misma entrada y corren al mismo tiempo con Promise.all; un agente final sintetiza sus salidas",
+                "Demo 5 — vuelos, hospedaje y actividades en paralelo, luego un agente de itinerario",
+              ],
+              [
+                "Secuencial / por etapas",
+                "La salida de un agente alimenta la entrada del siguiente",
+                "Demo 2 — el Hospital Router usa el resultado del Triage Validator para decidir a qué hospital enviar al paciente",
+              ],
+              [
+                "Jerárquico (delegación)",
+                "Un agente coordinador decide a cuál sub-agente delegar cada solicitud, según su descripción",
+                "El patrón que usa Agent Designer internamente cuando armas un agente con \"subagentes\" en el lienzo visual",
+              ],
+            ],
+          },
+          {
+            type: "callout",
+            kind: "info",
+            text: "No necesitas un framework distinto para cada patrón — es la misma llamada a InMemoryRunner y el mismo Agent de ADK. Lo que cambia es cómo tu propio código de orquestación (Promise.all, una cadena de await, o un agente delegador) conecta las salidas de un agente con la entrada del siguiente.",
+          },
+          {
+            type: "links",
+            items: [
+              {
+                label: "Documentación de ADK",
+                url: "https://google.github.io/adk-docs/",
+                description: "Los tres patrones de orquestación en detalle, con soporte oficial para Python, TypeScript, Go, Java y Kotlin.",
+              },
+            ],
+          },
+        ],
+      },
+      {
+        title: "Con código · Agent Engine, paso a paso",
+        durationMinutes: 3,
+        blocks: [
+          {
+            type: "p",
+            text: "Agent Engine es el runtime gestionado de la Gemini Enterprise Agent Platform (antes Vertex AI) para tus propios agentes ADK: le entregas tu código, y Google construye el contenedor, lo despliega y lo escala — sin que tú mantengas un Dockerfile ni un servicio de Cloud Run propio.",
+          },
+          {
+            type: "list",
+            items: [
+              "1. Instala las dependencias de despliegue en tu entorno de Python.",
+              "2. Asegúrate de tener un proyecto de Google Cloud con facturación habilitada — el mismo que usaste en \"Antes de empezar → Camino B\".",
+              "3. Desde la carpeta de tu agente, corre el comando de despliegue con tu proyecto, región y un nombre.",
+              "4. ADK empaqueta tu agente localmente y lo sube a Cloud Storage como staging.",
+              "5. Agent Engine recibe ese paquete, construye el contenedor y levanta el servidor HTTP por ti — sin que definas ninguna infraestructura a mano.",
+              "6. Prueba tu agente desplegado desde la consola o llamándolo directamente por su endpoint.",
+            ],
+          },
+          {
+            type: "code",
+            filename: "Terminal — pasos 1 y 3",
+            code: `pip install --upgrade --quiet "google-cloud-aiplatform[agent_engines,adk]>=1.112"
+
+adk deploy agent_engine \\
+  --project=$PROJECT_ID \\
+  --region=$LOCATION_ID \\
+  --display_name="Mi primer agente"`,
+          },
+          {
+            type: "callout",
+            kind: "warning",
+            text: "Esto reemplaza al Dockerfile + Cloud Run que este proyecto usa para su propio backend (ver \"Cierre y recursos → Dónde desplegar esto\") — son dos formas válidas de llegar a producción; Agent Engine es la que menos infraestructura te obliga a mantener.",
+          },
+          {
+            type: "links",
+            items: [
+              {
+                label: "Deploy ADK agents to Agent Engine",
+                url: "https://docs.cloud.google.com/gemini-enterprise-agent-platform/build/runtime/quickstart-adk",
+                description: "La guía oficial completa del comando adk deploy agent_engine y qué hace cada paso.",
+              },
+              {
+                label: "Agent Engine — overview",
+                url: "https://cloud.google.com/agent-builder/agent-engine/overview",
+                description: "Qué gestiona Agent Engine por ti: escalado, sesiones, memoria.",
+              },
+            ],
+          },
+        ],
+      },
+      {
+        title: "Con código · Protocolo A2A",
+        durationMinutes: 2,
+        blocks: [
+          {
+            type: "p",
+            text: "Todo lo anterior asume que tú controlas todos los agentes. El protocolo A2A (Agent2Agent) resuelve el problema contrario: cómo un agente construido por otro equipo — o con otro framework, como LangGraph en vez de ADK — descubre qué puede hacer tu agente y le habla, sin que ambos compartan código.",
+          },
+          {
+            type: "list",
+            items: [
+              "Cada agente publica un \"Agent Card\": un documento que describe sus capacidades, cómo autenticarse contra él, y cómo enviarle tareas — el equivalente a un contrato de API, pero pensado para agentes.",
+              "Un agente cliente lee ese Agent Card, arma una tarea en el formato que A2A define, y la envía — sin necesitar el código fuente del otro agente.",
+              "Google donó el protocolo a la Linux Foundation en 2025; hoy lo gobierna un consorcio de más de 150 organizaciones, no solo Google.",
+            ],
+          },
+          {
+            type: "callout",
+            kind: "info",
+            text: "Úsalo cuando tu multiagente cruza fronteras organizacionales o de framework. Dentro de un mismo equipo y un mismo repo — como las Demos 2 y 5 — llamar funciones de ADK directamente sigue siendo más simple que pasar por A2A.",
+          },
+          {
+            type: "links",
+            items: [
+              {
+                label: "A2A Protocol — especificación oficial",
+                url: "https://a2a-protocol.org",
+                description: "El formato del Agent Card y del intercambio de tareas entre agentes.",
+              },
+              {
+                label: "Codelab: Purchasing Concierge con A2A",
+                url: "https://codelabs.developers.google.com/intro-a2a-purchasing-concierge",
+                description: "Un ejemplo end-to-end de dos agentes independientes hablándose por A2A, sobre Cloud Run y Agent Engine.",
+              },
+            ],
+          },
+        ],
+      },
+      {
+        title: "Si tienes créditos de Google Cloud: qué puedes hacer",
+        durationMinutes: 2,
+        blocks: [
+          {
+            type: "p",
+            text: "Si tienes créditos de Google Cloud para gastar en Gemini Enterprise, no tienes que usarlos solo para crear una API key — esa es apenas la puerta de entrada. Esta tabla resume qué hacer en cada nivel, apoyándote en los pasos que ya viste en esta misma sección.",
+          },
+          {
+            type: "table",
+            headers: ["Nivel", "Haz esto", "Por qué"],
+            rows: [
+              [
+                "Solo quieres correr las demos de este codelab",
+                "Camino B → Opción 1 de \"Antes de empezar\" (API key restringida a Agent Platform API)",
+                "Es el mínimo viable: una key, una variable de entorno, listo",
+              ],
+              [
+                "Quieres explorar sin escribir código",
+                "Los 7 pasos de \"Sin código · Gemini Enterprise y Agent Designer\", arriba en esta sección",
+                "Ves un agente funcionando en minutos, sin tocar una línea de código",
+              ],
+              [
+                "Vas a desplegar un agente propio",
+                "Los 6 pasos de \"Con código · Agent Engine\", arriba en esta sección",
+                "Producción gestionada, sin mantener tu propio Cloud Run",
+              ],
+            ],
+          },
+          {
+            type: "callout",
+            kind: "info",
+            text: "El paso de facturación (habilitar la Agent Platform API, vincular tus créditos) es el mismo sin importar qué construyas después — ya lo hiciste, o lo harás, una sola vez en \"Antes de empezar → Camino B\". Esta tabla es solo sobre qué hacer con esa cuenta ya lista.",
+          },
+          {
+            type: "links",
+            items: [
+              {
+                label: "Gemini Enterprise",
+                url: "https://cloud.google.com/gemini-enterprise",
+                description: "La app sin código — antes Agentspace. Arma agentes de negocio desde una galería, sobre tus propias fuentes de datos.",
+              },
+              {
+                label: "Gemini Enterprise Agent Platform",
+                url: "https://cloud.google.com/products/gemini-enterprise-agent-platform",
+                description: "La plataforma de desarrollador — antes Vertex AI. Aquí viven ADK, Agent Engine y Model Garden.",
+              },
+              {
+                label: "Agent Engine — overview",
+                url: "https://cloud.google.com/agent-builder/agent-engine/overview",
+                description: "El runtime gestionado para desplegar y escalar agentes ADK sin gestionar servidores.",
+              },
+              {
+                label: "Documentación de ADK",
+                url: "https://google.github.io/adk-docs/",
+                description: "El framework que ya usaste en las Demos 2 y 5 — con soporte oficial para Python, TypeScript, Go, Java y Kotlin.",
+              },
+              {
+                label: "Protocolo A2A (Agent2Agent)",
+                url: "https://a2a-protocol.org",
+                description: "Estándar abierto para que agentes de frameworks distintos se descubran y se hablen entre sí.",
+              },
+            ],
+          },
+        ],
+      },
+      {
+        title: "Qué demos muestran esto, y el slide deck de esta sección",
+        durationMinutes: 1,
+        blocks: [
+          {
+            type: "list",
+            items: [
+              "Demo 2 · Gemini Flash multi-agente — tres agentes ADK (Triage Validator, Hospital Router, Supply Chain) orquestados con function calling real: la ruta de código, ya viva en este proyecto.",
+              "Demo 5 (extra) · Planificador de viajes — cuatro agentes ADK corriendo en paralelo más un agente de síntesis: el mismo patrón, un dominio distinto, para dejar claro que no es una receta de un solo uso.",
+              "La ruta sin código (Gemini Enterprise, Conversational Agents, Agent Garden) y el despliegue gestionado (Agent Engine) son la capa de plataforma que acabas de ver en detalle — sin una demo propia corriendo en este repositorio, hoy.",
+            ],
+          },
+          {
+            type: "demo-link",
+            label: "Ver el slide deck de esta sección",
+            url: "./slides-orquestacion.html",
+            note: "Se abre en una pestaña nueva. Resume el mapa sin código / con código, qué demos lo ilustran, y trae los QR de créditos, del codelab y del repositorio.",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "agentes-locales-webmcp",
+    title: "Local Agents with Gemma, Gemini Nano, and WebMCP",
+    steps: [
+      {
+        title: "Agente local vs. agente no local: dos formas distintas de razonar",
+        durationMinutes: 3,
+        blocks: [
+          {
+            type: "p",
+            text: "Hasta ahora viste un agente no local (Gemini Flash, en la nube) orquestando tres agentes especializados en la Demo 2. Esta sección profundiza en la otra mitad del espectro: un agente local, donde el modelo que razona corre dentro del propio navegador o dispositivo del usuario — como en la Demo 3 (Gemma) y, para tareas más simples, en las Demos 1 y 6 (Gemini Nano).",
+          },
+          {
+            type: "p",
+            text: "La diferencia no es de grado, es de arquitectura. Un agente no local hace una llamada de red a un servidor que Google opera: paga latencia de ida y vuelta, cuesta por token, necesita conexión, y los datos del prompt viajan fuera del dispositivo. Un agente local ejecuta la inferencia en el mismo proceso donde vive tu UI: latencia cercana a cero, sin costo por llamada, funciona sin conexión, y ningún dato sale del navegador — a cambio de un modelo mucho más pequeño y menos capaz en tareas de razonamiento largo o multi-paso.",
+          },
+          {
+            type: "table",
+            headers: ["", "Agente local (Nano / Gemma)", "Agente no local (Gemini Flash)"],
+            rows: [
+              ["Dónde corre la inferencia", "En el navegador o dispositivo del usuario", "En la infraestructura de Google, vía API"],
+              ["Latencia", "Prácticamente cero — sin round-trip de red", "Latencia de red + procesamiento en el servidor"],
+              ["Costo por llamada", "Cero", "Por token, según el modelo"],
+              ["Conectividad", "Funciona sin conexión (offline-first)", "Requiere conexión a internet"],
+              ["Privacidad de los datos", "El prompt nunca sale del dispositivo", "El prompt viaja a un servidor (tú controlas cuál, ver Demo 4)"],
+              ["Capacidad del modelo", "Limitada — contexto corto, menos fiable en tareas de varios pasos", "Alta — function calling robusto, contexto grande, multimodal"],
+              ["Dónde lo viste en este proyecto", "Demo 1 (Nano), Demo 3 (Gemma), Demo 6 (Nano + Summarizer)", "Demo 2, Demo 4, Demo 5"],
+            ],
+          },
+          {
+            type: "callout",
+            kind: "info",
+            text: "No es una decisión de \"cuál es mejor\" — es una decisión de dónde importa cada tradeoff. Un formulario de triage que sugiere una prioridad mientras el usuario escribe necesita latencia cero, no el razonamiento más sofisticado posible: ahí un agente local gana. Orquestar tres fuentes de datos distintas para decidir a qué hospital enviar a un paciente sí necesita ese razonamiento: ahí gana un agente no local.",
+          },
+        ],
+      },
+      {
+        title: "WebMCP a fondo: cómo un agente descubre y llama tus propias herramientas",
+        durationMinutes: 4,
+        blocks: [
+          {
+            type: "p",
+            text: "Un modelo local o remoto que solo genera texto sigue dependiendo de un humano que copie esa salida y la pegue donde corresponda. WebMCP (document.modelContext) cierra esa brecha: es la propuesta de Google y Microsoft, en revisión por el W3C Web Machine Learning Community Group, para que cualquier página web declare sus propias acciones como herramientas estructuradas que un agente puede descubrir y ejecutar directamente.",
+          },
+          {
+            type: "p",
+            text: "Es fácil confundirlo con \"MCP\" a secas (Model Context Protocol), pero resuelven problemas distintos. El MCP clásico conecta un modelo con servidores externos — procesos separados que hablan por stdio o HTTP, típico de herramientas de escritorio o de un agente de backend. WebMCP vive dentro de la propia página: no hay proceso aparte, es el navegador quien media el registro y la ejecución de cada herramienta sobre el DOM real de esa página. Por eso encaja de forma natural con agentes locales — el modelo, la página y las herramientas comparten el mismo proceso — aunque el protocolo en sí es agnóstico a dónde vive el modelo que las llama.",
+          },
+          {
+            type: "list",
+            items: [
+              "Cada herramienta se declara con un nombre, una descripción en lenguaje natural y un schema JSON de sus parámetros — el modelo lee esa descripción para decidir cuándo y cómo llamarla, exactamente igual que un FunctionTool de ADK en el backend.",
+              "document.modelContext.registerTool() publica esa herramienta para cualquier agente de navegador que la descubra — no solo para el código de la propia página.",
+              "Las anotaciones como readOnlyHint le dicen al agente si una acción es segura de ejecutar sin pedir confirmación explícita al usuario — una lectura no necesita el mismo permiso que una escritura.",
+              "El feature-detection (if (!document.modelContext) return;) es lo que hace que este patrón nunca rompa nada: en un navegador sin soporte, la página sigue funcionando con las mismas funciones llamadas directamente por tu propio código.",
+            ],
+          },
+          {
+            type: "code",
+            filename: "apps/web-client/src/mcp/webMcpTools.ts — el mismo catálogo, publicado dos formas",
+            code: `// 1. Como funciones normales de TypeScript, siempre disponibles:
+export const webMcpTools = [extractVitalsTool, updateTriageBadgeTool, cacheOfflineRecordTool];
+
+// 2. Publicadas para cualquier agente de navegador, solo si la API existe:
+export function registerWebMcpTools(): void {
+  const modelContext = document.modelContext;
+  if (!modelContext) return; // sin WebMCP: seguimos usando los tools localmente
+
+  for (const tool of webMcpTools) {
+    void modelContext.registerTool({
+      name: tool.name,
+      description: tool.description,
+      inputSchema: tool.parameters,
+      execute: (input) => Promise.resolve(tool.handler(input)),
+      annotations: { readOnlyHint: tool.name === "extractVitals" },
+    });
+  }
+}`,
+          },
+          {
+            type: "callout",
+            kind: "warning",
+            text: "WebMCP está en Origin Trial desde Chrome 149 (y Edge 150) — todavía no es un estándar estable, y la forma final de la API puede cambiar. Pruébalo localmente sin token con chrome://flags/#enable-webmcp-testing.",
+          },
+        ],
+      },
+      {
+        title: "Gemini Nano vs. Gemma: dos rutas distintas para ser local",
+        durationMinutes: 3,
+        blocks: [
+          {
+            type: "p",
+            text: "\"Agente local\" no significa una sola tecnología. Este proyecto usa dos, con tradeoffs opuestos entre sí, y elegir entre ellas depende de cuánto control necesitas sobre el modelo mismo.",
+          },
+          {
+            type: "table",
+            headers: ["", "Gemini Nano", "Gemma"],
+            rows: [
+              ["Dónde vive", "Dentro de Chrome — global LanguageModel (Prompt API)", "Donde tú decidas: navegador vía Google AI Edge/MediaPipe (WASM/WebGPU), servidor, móvil, Ollama"],
+              ["Cómo se activa", "Ya viene instalado; LanguageModel.availability() y .create() lo activan", "Tú descargas el archivo del modelo (.litertlm) y lo cargas explícitamente"],
+              ["Control sobre el modelo", "Caja cerrada: no eliges el tamaño ni haces fine-tuning", "Pesos abiertos: eliges la variante (E2B/E4B) y puedes ajustarlo a tu dominio"],
+              ["Cuándo actualiza", "Con el navegador, fuera de tu control", "Cuando tú decidas volver a desplegar el archivo del modelo"],
+              ["Mejor caso de uso", "Latencia cero dentro de Chrome, sin pedirle nada al usuario", "Necesitas portabilidad, control del runtime, o correr fuera de Chrome"],
+              ["Dónde lo viste", "Demo 1 (triage en tiempo real) y Demo 6 (explicaciones de laboratorio)", "Demo 3 (reporte de traspaso del agente local)"],
+            ],
+          },
+          {
+            type: "callout",
+            kind: "success",
+            text: "Lección de arquitectura de la Demo 3, y la que más se repite en agentes locales: un modelo pequeño no es tan capaz como Gemini Flash, así que no le pidas que haga todo. Deja que herramientas WebMCP deterministicas resuelvan la parte crítica (extraer vitales, calcular una prioridad), y reserva al LLM local solo para lo que un LLM hace mejor — generar el texto final en lenguaje natural.",
+          },
+        ],
+      },
+      {
+        title: "Dónde ya lo viste: el mismo patrón, tres veces",
+        durationMinutes: 2,
+        blocks: [
+          {
+            type: "p",
+            text: "Las Demos 1, 3 y 6 no son variaciones cosméticas del mismo formulario — cada una prueba una pieza distinta de \"agente local + WebMCP\" que puedes reutilizar por separado en tu propio proyecto.",
+          },
+          {
+            type: "list",
+            items: [
+              "Demo 1 — Gemini Nano decide cuándo llamar a extractVitals, updateTriageBadge y cacheOfflineRecord mientras el usuario escribe, sin que nadie programe \"si el texto dice X, ejecuta Y\": el modelo elige la herramienta y el momento.",
+              "Demo 3 — la misma extracción de vitales y el mismo cálculo de prioridad corren sin ninguna IA (deterministas); Gemma solo redacta el reporte de traspaso en lenguaje natural, con un modo seguro que nunca depende de descargar el modelo en vivo.",
+              "Demo 6 — el patrón WebMCP se aplica a un dominio distinto (un panel de resultados de laboratorio, no un formulario), y se combina con la Summarizer API de Chrome y el mismo LanguageModel de la Demo 1, ambos on-device y sin llamadas de red.",
+            ],
+          },
+          {
+            type: "callout",
+            kind: "info",
+            text: "Si solo puedes probar una demo en vivo para entender esta sección, prueba la Demo 3: es la única que compara explícitamente un modo con IA local real contra un modo seguro determinista, con el mismo código de UI para ambos.",
+          },
+          {
+            type: "demo-link",
+            label: "Abrir Demo 3 en vivo (Gemma local + WebMCP)",
+            url: `${WEB_CLIENT_URL}/#gemma`,
+            note: "La misma demo que ya viste en la sección Demo 3 — vuelve aquí cuando termines.",
+          },
+        ],
+      },
+      {
+        title: "Qué demos muestran esto, y el slide deck de esta sección",
+        durationMinutes: 1,
+        blocks: [
+          {
+            type: "list",
+            items: [
+              "Demo 1 · Gemini Nano + WebMCP — el modelo local decide cuándo llamar a las herramientas de la propia página, en tiempo real mientras el usuario escribe.",
+              "Demo 3 · Gemma local + WebMCP — el patrón completo de agente local: herramientas deterministas para la decisión crítica, LLM local solo para el texto final.",
+              "Demo 6 · Panel de contexto médico — el mismo WebMCP aplicado a otro dominio, combinado con la Summarizer API on-device.",
+              "Todas corren en la misma demo pública, sin instalar nada localmente.",
+            ],
+          },
+          {
+            type: "demo-link",
+            label: "Abrir las demos en vivo",
+            url: WEB_CLIENT_URL,
+            note: "Firebase Hosting — abre en una pestaña nueva. Usa las pestañas 1, 3 y 6 para las demos de esta sección.",
+          },
+          {
+            type: "demo-link",
+            label: "Ver el slide deck de esta sección",
+            url: "./slides-agentes-locales.html",
+            note: "Se abre en una pestaña nueva. Resume local vs. no local, qué es WebMCP, Nano vs. Gemma, y trae los QR de créditos, del codelab, del repositorio y de las demos.",
+          },
+        ],
+      },
+    ],
+  },
+
+  {
     id: "cierre",
     title: "Cierre y recursos",
     steps: [
@@ -912,6 +1516,141 @@ exports.disableBillingOnBudgetExceeded = async (cloudEvent) => {
             type: "callout",
             kind: "success",
             text: "Si eres estudiante o estás armando tu startup: el 80% de este repo es genérico (patrón de tool-calling, WebMCP, fallbacks). Cambia \"triage médico\" por tu propio dominio y ya tienes el esqueleto de tu próxima app agéntica.",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "trustable-ai",
+    title: "Building Trustable AI",
+    steps: [
+      {
+        title: "Fluido no es lo mismo que confiable",
+        durationMinutes: 2,
+        blocks: [
+          {
+            type: "p",
+            text: "El codelab \"Building Trustable AI at 100 MPH\" de Google usa un coach de carreras en tiempo real como ejemplo: un modelo puede sonar fluido y seguro sin serlo. Su ejemplo clásico es un piloto perdiendo agarre en una curva — una respuesta ingenua ignora el riesgo del momento; una respuesta confiable ajusta el consejo a la condición de la pista y a límites de seguridad explícitos, no solo a lo que el modelo \"cree\" que suena bien.",
+          },
+          {
+            type: "p",
+            text: "La tesis central, aplicable a cualquier dominio (incluido el triage médico de este proyecto): la confiabilidad no emerge de un modelo más grande o de un mejor prompt — emerge de la arquitectura alrededor del modelo.",
+          },
+          {
+            type: "callout",
+            kind: "info",
+            text: "Ya viste una versión pequeña de esta misma idea en \"Lo que te llevas hoy\": heurísticos determinísticos y modos seguros que hacen que este proyecto nunca dependa 100% de que la IA responda bien en el momento exacto. Esta sección explica el mismo principio a escala de plataforma.",
+          },
+          {
+            type: "links",
+            items: [
+              {
+                label: "Building Trustable AI at 100 MPH (codelab original)",
+                url: "https://codelabs.developers.google.com/codelabs/trustable-at-100-mph?hl=en#3",
+                description: "El codelab de Google del que parte esta sección — arquitectura de confianza usando un coach de carreras como ejemplo.",
+              },
+            ],
+          },
+        ],
+      },
+      {
+        title: "La arquitectura importa más que el modelo",
+        durationMinutes: 2,
+        blocks: [
+          {
+            type: "p",
+            text: "El codelab propone una arquitectura modular con dos rutas separadas: una ruta reflexiva (determinística, en tiempo real — validaciones y límites duros que no pasan por el modelo) y una ruta estratégica (razonamiento del LLM sobre contexto más amplio). El modelo nunca es la única capa de decisión.",
+          },
+          {
+            type: "list",
+            items: [
+              "Ancla el modelo en datos reales y frescos — en su ejemplo, telemetría en vivo por Server-Sent Events; en este proyecto, los signos vitales y el estado de capacidad hospitalaria que ya viste en las Demos 1 y 2.",
+              "Normaliza y filtra los datos antes de que lleguen al modelo — límites de físicas de carrera en su caso, rangos clínicos válidos en el nuestro.",
+              "Codifica el expertise de dominio como reglas explícitas, no como esperanza de que el modelo las infiera — su ejemplo son las reglas de manejo seguro; el equivalente de este proyecto es validateClinicalUrgencyTool de la Demo 2.",
+              "Deja que el LLM razone y explique, pero nunca que sea la última palabra sobre una acción con consecuencias reales.",
+            ],
+          },
+          {
+            type: "callout",
+            kind: "warning",
+            text: "Esto no es exclusivo de casos de alto riesgo como carreras o salud — es la diferencia entre una demo que se ve bien en el escenario y un sistema que sigue siendo correcto cuando el input es raro, el modelo alucina, o la latencia se dispara.",
+          },
+        ],
+      },
+      {
+        title: "Cómo se ve esto hoy con Gemini Enterprise",
+        durationMinutes: 3,
+        blocks: [
+          {
+            type: "p",
+            text: "El codelab original construye su arquitectura de confianza a mano, sobre una API genérica de Gemini. Desde entonces, buena parte de esas capas ya no hay que construirlas desde cero — llegan como producto dentro de la Gemini Enterprise Agent Platform.",
+          },
+          {
+            type: "table",
+            headers: ["Capa de confianza", "Qué resuelve", "Producto de Gemini Enterprise"],
+            rows: [
+              [
+                "Filtrar contenido dañino en la salida del modelo",
+                "Bloquea categorías de daño antes de que la respuesta llegue al usuario",
+                "Safety settings de la Gemini API — 5 categorías de daño configurables",
+              ],
+              [
+                "Fijar el comportamiento y los límites del agente",
+                "Evita que el modelo se salga del rol o de las reglas que definiste",
+                "System instructions de la Gemini API",
+              ],
+              [
+                "Anclar respuestas en datos verificables",
+                "Reduce alucinaciones citando fuentes reales, con enlaces trazables",
+                "Grounding with Google Search, con citas estructuradas (grounding_metadata)",
+              ],
+              [
+                "Blindar el prompt y la respuesta contra ataques",
+                "Detecta prompt injection, jailbreaks y fuga de datos sensibles",
+                "Model Armor — inspecciona el tráfico antes de llegar al modelo y antes de llegar al usuario",
+              ],
+              [
+                "Gobernar qué puede hacer cada agente",
+                "Aplica mínimo privilegio y deja auditoría no repudiable de cada acción",
+                "Agent Identity — identidad IAM nativa para agentes, con autenticación mTLS/DPoP",
+              ],
+              [
+                "Centralizar el control sobre toda la flota de agentes",
+                "Un solo punto para aplicar reglas de acceso y protección a todos tus agentes",
+                "Agent Gateway — enruta e inspecciona el tráfico de agentes, integrado con Model Armor",
+              ],
+            ],
+          },
+          {
+            type: "callout",
+            kind: "success",
+            text: "Regla práctica: usa las capas de la tabla en orden creciente de madurez. Empieza con safety settings + system instructions (gratis, en cualquier llamada a la Gemini API). Añade grounding cuando la exactitud factual importe. Sube a Model Armor + Agent Gateway + Agent Identity cuando tus agentes pasen de demo a producción con usuarios reales — es la versión gestionada de la arquitectura de guardrails que este codelab construye a mano.",
+          },
+          {
+            type: "links",
+            items: [
+              {
+                label: "Safety and factuality guidance",
+                url: "https://ai.google.dev/gemini-api/docs/safety-guidance",
+                description: "Safety settings y system instructions de la Gemini API — el punto de partida más simple.",
+              },
+              {
+                label: "Model Armor",
+                url: "https://cloud.google.com/security/products/model-armor",
+                description: "Protección en tiempo de ejecución contra prompt injection, jailbreaks y fuga de datos sensibles.",
+              },
+              {
+                label: "Agent Identity — overview",
+                url: "https://docs.cloud.google.com/gemini-enterprise-agent-platform/govern/agent-identity-overview",
+                description: "Identidad IAM nativa para agentes, con mínimo privilegio y auditoría no repudiable.",
+              },
+              {
+                label: "Agent Gateway — overview",
+                url: "https://docs.cloud.google.com/gemini-enterprise-agent-platform/govern/gateways/agent-gateway-overview",
+                description: "Punto de control central para asegurar y gobernar todas las interacciones de tus agentes.",
+              },
+            ],
           },
         ],
       },

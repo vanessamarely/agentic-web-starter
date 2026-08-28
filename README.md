@@ -15,6 +15,11 @@ earthquake relief in Colombia) as the running example for three live demos:
 
 Demos 1, 2 and 5 each have a **Google AI Studio / Agent Platform** toggle next to their run button — same code, same `gemini-3.7-flash` model, different credentials. Useful when a venue only hands out Google Cloud credits instead of AI Studio credits.
 
+**Live:**
+
+- Deployed demos (`web-client`): <https://agentic-web-starter-client.web.app>
+- Codelab (`apps/codelab`), published: <https://agentic-web-starter-codelab.web.app>
+
 ## Architecture
 
 ```
