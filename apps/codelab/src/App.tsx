@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { modules } from "./data/content";
 import { StepContent } from "./components/StepContent";
 
@@ -34,9 +34,38 @@ function useFlatSteps(): FlatStep[] {
   }, []);
 }
 
+// Deep links: "#<module-id>" opens a module's first step, "#<module-id>/<n>" its step n (1-based).
+function indexFromHash(flatSteps: FlatStep[]): number {
+  const [moduleId, n] = decodeURIComponent(window.location.hash.slice(1)).split("/");
+  if (!moduleId) return 0;
+  const stepIndex = Math.max(0, (Number(n) || 1) - 1);
+  const match =
+    flatSteps.find((f) => f.moduleId === moduleId && f.moduleStepIndex === stepIndex) ??
+    flatSteps.find((f) => f.moduleId === moduleId);
+  return match ? match.globalIndex : 0;
+}
+
+function hashFor(step: FlatStep): string {
+  return step.moduleStepIndex === 0 ? `#${step.moduleId}` : `#${step.moduleId}/${step.moduleStepIndex + 1}`;
+}
+
 export default function App() {
   const flatSteps = useFlatSteps();
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState(() => indexFromHash(flatSteps));
+
+  // Keep the address in sync with the current step, and follow links changed by hand
+  useEffect(() => {
+    const hash = currentIndex === 0 ? "" : hashFor(flatSteps[currentIndex]!);
+    if (window.location.hash !== hash) {
+      history.replaceState(null, "", hash || window.location.pathname + window.location.search);
+    }
+  }, [currentIndex, flatSteps]);
+
+  useEffect(() => {
+    const onHashChange = () => setCurrentIndex(indexFromHash(flatSteps));
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, [flatSteps]);
 
   const totalMinutes = useMemo(
     () => flatSteps.reduce((sum, step) => sum + step.durationMinutes, 0),
